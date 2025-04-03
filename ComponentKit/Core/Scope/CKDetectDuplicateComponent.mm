@@ -33,7 +33,7 @@ static NSArray<id<CKMountable>> *generateComponentBacktrace(id<CKMountable> comp
 
 CKDuplicateComponentInfo CKFindDuplicateComponent(const CKComponentLayout &layout)
 {
-  std::queue<const CKComponentLayout> queue;
+  std::queue<CKComponentLayout> queue;
   NSMutableSet<id<NSObject>> *const previouslySeenComponent = [NSMutableSet new];
   NSMapTable<id<CKMountable>, id<CKMountable>> *const componentsToParentComponents = [NSMapTable strongToStrongObjectsMapTable];
   queue.push(layout);
