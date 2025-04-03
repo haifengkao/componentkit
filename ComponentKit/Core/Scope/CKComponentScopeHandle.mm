@@ -11,6 +11,7 @@
 #import "CKComponentScopeHandle.h"
 
 #include <mutex>
+#include <atomic>
 
 #import <ComponentKit/CKInternalHelpers.h>
 #import <ComponentKit/CKMutex.h>
@@ -66,9 +67,9 @@
                   componentClass:(Class)componentClass
                     initialState:(id)initialState
 {
-  static int32_t nextGlobalIdentifier = 0;
+  static std::atomic<int32_t> nextGlobalIdentifier{0};
   return [self initWithListener:listener
-               globalIdentifier:OSAtomicIncrement32(&nextGlobalIdentifier)
+               globalIdentifier:nextGlobalIdentifier++
                  rootIdentifier:rootIdentifier
                  componentClass:componentClass
                           state:initialState
@@ -232,8 +233,8 @@
 - (instancetype)init
 {
   if (self = [super init]) {
-    static CKScopedResponderUniqueIdentifier nextIdentifier = 0;
-    _uniqueIdentifier = OSAtomicIncrement32(&nextIdentifier);
+    static std::atomic<CKScopedResponderUniqueIdentifier> nextIdentifier{0};
+    _uniqueIdentifier = nextIdentifier++;
   }
 
   return self;

@@ -12,7 +12,7 @@
 #import "CKAsyncLayerInternal.h"
 #import "CKAsyncLayerSubclass.h"
 
-#include <libkern/OSAtomic.h>
+#include <atomic>
 
 #import <ComponentKit/CKAssert.h>
 
@@ -22,6 +22,13 @@
 @implementation CKAsyncLayer
 {
   BOOL _needsAsyncDisplayOnly;
+}
+
+- (instancetype)init {
+    if (self = [super init]) {
+        _displaySentinel.store(0); // 設定初始值為 0
+    }
+    return self;
 }
 
 #pragma mark - Class Methods
@@ -87,14 +94,14 @@
 - (void)cancelAsyncDisplay
 {
   CKAssertMainThread();
-  OSAtomicIncrement32(&_displaySentinel);
+  ++_displaySentinel;
 }
 
 + (ck_async_transaction_operation_block_t)asyncDisplayBlockWithBounds:(CGRect)bounds
                                                         contentsScale:(CGFloat)contentsScale
                                                                opaque:(BOOL)opaque
                                                       backgroundColor:(CGColorRef)backgroundColor
-                                                      displaySentinel:(int32_t *)displaySentinel
+                                                      displaySentinel:(std::atomic<int32_t>&)displaySentinel
                                          expectedDisplaySentinelValue:(int32_t)expectedDisplaySentinelValue
                                                       drawingDelegate:(id<CKAsyncLayerDrawingDelegate>)drawingDelegate
                                                        drawParameters:(NSObject *)drawParameters
@@ -103,7 +110,7 @@
   id backgroundColorObject = (__bridge id)backgroundColor;
   return [^id{
     // Short-circuit to be efficient in the case where we've already started a different -display.
-    if ((displaySentinel != nil) && (*displaySentinel != expectedDisplaySentinelValue)) {
+    if (displaySentinel != expectedDisplaySentinelValue) {
       return nil;
     }
 
@@ -175,7 +182,7 @@
     return;
   }
 
-  int32_t displaySentinelValue = OSAtomicIncrement32(&_displaySentinel);
+  int32_t displaySentinelValue = _displaySentinel++;
   CALayer *containerLayer = parentTransactionContainer ?: self;
   CKAsyncTransaction *transaction = containerLayer.ck_asyncTransaction;
   CKAssertNotNil(transaction, @"Expected async layer transaction to be non-nil");
@@ -183,7 +190,7 @@
                                                                                         contentsScale:self.contentsScale
                                                                                                opaque:self.opaque
                                                                                       backgroundColor:self.backgroundColor
-                                                                                      displaySentinel:&_displaySentinel
+                                                                                      displaySentinel:_displaySentinel
                                                                          expectedDisplaySentinelValue:displaySentinelValue
                                                                                       drawingDelegate:(id<CKAsyncLayerDrawingDelegate>)[self class]
                                                                                        drawParameters:drawParameters];

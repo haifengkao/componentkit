@@ -10,7 +10,7 @@
 
 #import "CKComponentScopeRoot.h"
 
-#import <libkern/OSAtomic.h>
+#import <atomic>
 
 #import <ComponentKit/CKInternalHelpers.h>
 #import <ComponentKit/CKRootTreeNode.h>
@@ -39,10 +39,10 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
              componentPredicates:(const std::unordered_set<CKComponentPredicate> &)componentPredicates
    componentControllerPredicates:(const std::unordered_set<CKComponentControllerPredicate> &)componentControllerPredicates
 {
-  static int32_t nextGlobalIdentifier = 0;
+  static std::atomic<int32_t> nextGlobalIdentifier{0};
   return [[CKComponentScopeRoot alloc] initWithListener:listener
                                       analyticsListener:analyticsListener
-                                       globalIdentifier:OSAtomicIncrement32(&nextGlobalIdentifier)
+                                       globalIdentifier:nextGlobalIdentifier++
                                     componentPredicates:componentPredicates
                           componentControllerPredicates:componentControllerPredicates];
 }

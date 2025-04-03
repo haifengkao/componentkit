@@ -10,7 +10,7 @@
 
 #import "CKDataSourceChangesetApplicator.h"
 
-#import <libkern/OSAtomic.h>
+#import <atomic>
 #import <vector>
 
 #import <ComponentKit/CKDataSourceAppliedChanges.h>
@@ -27,7 +27,7 @@
 
 static void *kQueueKey = &kQueueKey;
 static NSString *const kChangesetApplicatorIdUserInfoKey = @"CKDataSourceChangesetApplicator.Id";
-static int32_t globalChangesetApplicatorId = 0;
+static std::atomic<int32_t> globalChangesetApplicatorId{0};
 
 struct CKDataSourceChangesetApplicatorPipelineItem {
   CKDataSourceChangeset *changeset;
@@ -63,7 +63,7 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
     _dataSource = dataSource;
     _dataSourceState = dataSource.state;
     _queue = queue;
-    _changesetApplicatorId = @(OSAtomicIncrement32(&globalChangesetApplicatorId));
+    _changesetApplicatorId = @(globalChangesetApplicatorId++);
     [_dataSource addListener:self];
 
     CKAssertNotNil(_queue, @"A dispatch queue must be specified for changeset applicator.");
