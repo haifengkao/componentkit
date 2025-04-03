@@ -260,7 +260,7 @@ class __attribute__((__may_alias__)) ButtonComponentBuilder
   /**
    Specifies whether subviews of a view for the component should be confined to its bounds.
 
-   @param enabled A Boolean value that determines whether subviews are confined
+   @param clip A Boolean value that determines whether subviews are confined
 
    @note Calling this method on a builder that does not have a view class set will trigger a compilation error.
 
