@@ -19,7 +19,7 @@
 #import <unordered_map>
 
 #import <UIKit/UIKit.h>
-#import <RenderCore/RCEqualityHelpers.h>
+#import <RenderCore/CKEqualityHelpers.h>
 #import <RenderCore/ComponentViewReuseUtilities.h>
 
 struct CKComponentViewClassIdentifier {
@@ -49,7 +49,7 @@ struct CKComponentViewClassIdentifier {
   }
 
   size_t hash() const noexcept {
-    return RCHash64ToNative(RCHashCombine(std::hash<uint64_t>()((uint64_t)this->ptr1), (uint64_t)this->ptr2));
+    return CKHash64ToNative(CKHashCombine(std::hash<uint64_t>()((uint64_t)this->ptr1), (uint64_t)this->ptr2));
   }
 
 private:

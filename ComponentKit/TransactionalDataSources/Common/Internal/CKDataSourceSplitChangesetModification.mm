@@ -26,6 +26,7 @@
 #import "CKComponentControllerHelper.h"
 #import "CKComponentLayout.h"
 #import "CKComponentProvider.h"
+#import "CKComponentScopeFrame.h"
 #import "CKComponentScopeRoot.h"
 #import "CKComponentScopeRootFactory.h"
 #import "CKDataSourceModificationHelper.h"
@@ -41,7 +42,6 @@ using namespace CKComponentControllerHelper;
   NSDictionary *_userInfo;
   CKDataSourceViewport _viewport;
   CKDataSourceQOS _qos;
-  std::shared_ptr<CKTreeLayoutCache> _treeLayoutCache;
 }
 
 - (instancetype)initWithChangeset:(CKDataSourceChangeset *)changeset
@@ -49,16 +49,6 @@ using namespace CKComponentControllerHelper;
                          userInfo:(NSDictionary *)userInfo
                          viewport:(CKDataSourceViewport)viewport
                               qos:(CKDataSourceQOS)qos
-{
-  return [self initWithChangeset:changeset stateListener:stateListener userInfo:userInfo viewport:viewport qos:qos treeLayoutCache:nullptr];
-}
-
-- (instancetype)initWithChangeset:(CKDataSourceChangeset *)changeset
-                    stateListener:(id<CKComponentStateListener>)stateListener
-                         userInfo:(NSDictionary *)userInfo
-                         viewport:(CKDataSourceViewport)viewport
-                              qos:(CKDataSourceQOS)qos
-                  treeLayoutCache:(std::shared_ptr<CKTreeLayoutCache>)treeLayoutCache
 {
   if (self = [super init]) {
     _changeset = changeset;
@@ -66,7 +56,6 @@ using namespace CKComponentControllerHelper;
     _userInfo = [userInfo copy];
     _viewport = viewport;
     _qos = qos;
-    _treeLayoutCache = std::move(treeLayoutCache);
   }
   return self;
 }
@@ -139,17 +128,16 @@ using namespace CKComponentControllerHelper;
                              oldState);
       }
       CKDataSourceItem *const oldItem = section[indexPath.item];
-      const auto layoutCache = _treeLayoutCache ? _treeLayoutCache->find([oldItem.scopeRoot globalIdentifier]) : nullptr;
-      CKDataSourceItem *const item = CKBuildDataSourceItem([oldItem scopeRoot], {}, sizeRange, configuration, model, context, layoutCache);
+      CKDataSourceItem *const item = CKBuildDataSourceItem([oldItem scopeRoot], {}, sizeRange, configuration, model, context);
       [section replaceObjectAtIndex:indexPath.item withObject:item];
       for (auto componentController : addedControllersFromPreviousScopeRootMatchingPredicate(item.scopeRoot,
-                                                                                                   oldItem.scopeRoot,
-                                                                                                   &CKComponentControllerInitializeEventPredicate)) {
+                                                                                             oldItem.scopeRoot,
+                                                                                             &CKComponentControllerInitializeEventPredicate)) {
         [addedComponentControllers addObject:componentController];
       }
       for (auto componentController : removedControllersFromPreviousScopeRootMatchingPredicate(item.scopeRoot,
-                                                                                                     oldItem.scopeRoot,
-                                                                                                     &CKComponentControllerInvalidateEventPredicate)) {
+                                                                                               oldItem.scopeRoot,
+                                                                                               &CKComponentControllerInvalidateEventPredicate)) {
         [invalidComponentControllers addObject:componentController];
       }
     }];
@@ -281,7 +269,7 @@ using namespace CKComponentControllerHelper;
 
   // Insert items
   const auto buildItem = ^CKDataSourceItem *(id model) {
-    return CKBuildDataSourceItem(CKComponentScopeRootWithPredicates(self->_stateListener,
+    return CKBuildDataSourceItem(CKComponentScopeRootWithPredicates(_stateListener,
                                                                     configuration.analyticsListener,
                                                                     configuration.componentPredicates,
                                                                     configuration.componentControllerPredicates), {},
@@ -376,7 +364,7 @@ using namespace CKComponentControllerHelper;
                                              insertedIndexPaths:[NSSet setWithArray:[initialInsertedItems allKeys]]
                                                        userInfo:_userInfo];
   CKDataSourceChangeset *appliedChangeset =
-  [[[[[[[[CKDataSourceChangesetBuilder dataSourceChangesetWithOriginName:@"data_source_split_changeset_modification"]
+  [[[[[[[[CKDataSourceChangesetBuilder dataSourceChangeset]
          withUpdatedItems:initialUpdatedItems]
         withRemovedItems:[_changeset removedItems]]
        withRemovedSections:[_changeset removedSections]]
@@ -509,13 +497,13 @@ static CKDataSourceSplitUpdateResult splitUpdatedItems(NSArray<NSArray<CKDataSou
         initialUpdatedItems[indexPath] = updatedModel;
         contentSize = addSizeToSize(contentSize, [newItem rootLayout].size());
         for (auto componentController : addedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                     item.scopeRoot,
-                                                                                                     &CKComponentControllerInitializeEventPredicate)) {
+                                                                                               item.scopeRoot,
+                                                                                               &CKComponentControllerInitializeEventPredicate)) {
           [addedComponentControllers addObject:componentController];
         }
         for (auto componentController : removedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                       item.scopeRoot,
-                                                                                                       &CKComponentControllerInvalidateEventPredicate)) {
+                                                                                                 item.scopeRoot,
+                                                                                                 &CKComponentControllerInvalidateEventPredicate)) {
           [invalidComponentControllers addObject:componentController];
         }
       }
@@ -581,7 +569,7 @@ static CKDataSourceChangeset *createDeferredChangeset(NSDictionary<NSIndexPath *
   if (insertedItems.count == 0 && updatedItems.count == 0) {
     return nil;
   }
-  return [[[[CKDataSourceChangesetBuilder dataSourceChangesetWithOriginName:@"data_source_split_changeset_modification_deffered"]
+  return [[[[CKDataSourceChangesetBuilder dataSourceChangeset]
             withUpdatedItems:updatedItems]
            withInsertedItems:insertedItems]
           build];

@@ -42,7 +42,7 @@ static NSString *const kTestContextForLifecycleComponent = @"kTestContextForLife
 + (instancetype)newWithContext:(id<NSObject>)context
 {
   CKLifecycleTestComponent *lifecycleComponent = [context isEqual:kTestContextForLifecycleComponent]
-  ? [CKLifecycleTestComponent new]
+  ? [CKLifecycleTestComponent newWithView:{} size:{}]
   : nil;
   const auto c = [super newWithComponent:lifecycleComponent ?: CK::ComponentBuilder()
                                                                    .build()];

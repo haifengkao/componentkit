@@ -20,7 +20,7 @@
 #import <ComponentKit/CKComponentScopeRootFactory.h>
 #import <ComponentKit/CKComponentSizeRangeProviding.h>
 #import <ComponentKit/CKComponentRootLayoutProvider.h>
-#import <RenderCore/RCDimension.h>
+#import <ComponentKit/CKDimension.h>
 
 using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
 
@@ -54,12 +54,12 @@ using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
                                                  constrainedSize:(CKSizeRange)constrainedSize
                                                          context:(id<NSObject>)context
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   CKComponentScopeRoot *previousScopeRoot = _previousScopeRoot ?: CKComponentScopeRootWithDefaultPredicates(self, nil);
-  CKBuildComponentResult result = CKBuildComponent(CK::makeNonNull(previousScopeRoot), _pendingStateUpdates, ^{
+  CKBuildComponentResult result = CKBuildComponent(previousScopeRoot, _pendingStateUpdates, ^{
     return _componentProvider ? _componentProvider(model, context) : nil;
   });
-  const RCLayout componentLayout = CKComputeRootComponentLayout(result.component, constrainedSize).layout();
+  const CKComponentLayout componentLayout = CKComputeRootComponentLayout(result.component, constrainedSize).layout();
   _previousScopeRoot = result.scopeRoot;
   _pendingStateUpdates.clear();
   return {
@@ -74,7 +74,7 @@ using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
 
 - (void)updateWithState:(const CKComponentLifecycleTestHelperState &)state
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [self updateWithStateWithoutMounting:state];
   if (_mountedView) {
     CKComponentBoundsAnimationApply(state.boundsAnimation, ^{
@@ -85,14 +85,14 @@ using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
 
 - (void)updateWithStateWithoutMounting:(const CKComponentLifecycleTestHelperState &)state
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   _state = state;
   _rootLayout = CKComponentRootLayout{_state.componentLayout};
 }
 
 - (void)attachToView:(UIView *)view
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   _mountedView = view;
   CKComponentAttachControllerAttachComponentRootLayout(
       _componentAttachController,
@@ -105,14 +105,14 @@ using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
 
 - (void)detachFromView
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   _mountedView = nil;
   [_componentAttachController detachComponentLayoutWithScopeIdentifier:_state.scopeRoot.globalIdentifier];
 }
 
 - (const CKComponentLifecycleTestHelperState &)state
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   return _state;
 }
 
@@ -122,18 +122,13 @@ using ProviderFunc = CKComponent *(*)(id<NSObject>, id<NSObject>);
                     metadata:(const CKStateUpdateMetadata &)metadata
                         mode:(CKUpdateMode)mode
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
 
   _pendingStateUpdates[handle].push_back(stateUpdate);
   const CKSizeRange constrainedSize = _sizeRangeProvider ? [_sizeRangeProvider sizeRangeForBoundingSize:_state.constrainedSize.max] : _state.constrainedSize;
   [self updateWithState:[self prepareForUpdateWithModel:_state.model
                                         constrainedSize:constrainedSize
                                                 context:_state.context]];
-}
-
-+ (BOOL)requiresMainThreadAffinedStateUpdates
-{
-  return YES;
 }
 
 #pragma mark - CKComponentRootLayoutProvider

@@ -19,7 +19,6 @@
 #import <ComponentKit/CKTransitions.h>
 #import <ComponentKit/CKOptional.h>
 #import <ComponentKit/CKComponentSpecContext.h>
-#import <ComponentKit/CKAccessibilityAggregation.h>
 
 namespace CK {
 namespace BuilderDetails {
@@ -48,10 +47,9 @@ class __attribute__((__may_alias__)) BuilderBase {
 
 protected:
   BuilderBase() = default;
-  BuilderBase(const CK::ComponentSpecContext& context) : _context(context) { }
+  BuilderBase(CK::ComponentSpecContext context) : _context(std::move(context)) { }
 
 public:
-  BuilderBase(const BuilderBase&) = default;
   /**
    Creates a new component instance and optionally wrap it with an animation component.
 
@@ -62,9 +60,6 @@ public:
     const auto component = _buildComponentWithTransitionsIfNeeded();
     if (PropBitmap::isSet(PropsBitmap, BuilderBasePropId::key)) {
       _context.declareKey(_key, component);
-    }
-    if (_aggregatedAttributes != CKAccessibilityAggregatedAttributeNone) {
-      return CKComponentWithAccessibilityAggregationWrapper(component, _aggregatedAttributes);
     }
     return component;
   }
@@ -83,9 +78,7 @@ public:
     static_assert(contextIsSet, "Cannot set 'key' without specifying 'context'");
 
     _key = key;
-
-    // `this` pointer needs adjustment since `BuilderBase` is not the first base class of `ComponentBuilderBase`
-    return reinterpret_cast<Derived<PropsBitmap | BuilderBasePropId::key> &>(*static_cast<Derived<PropsBitmap> *>(this));
+    return reinterpret_cast<Derived<PropsBitmap> &>(*this);
   }
 
   /**
@@ -96,9 +89,7 @@ public:
   auto &animationInitial(CK::Animation::Initial animationInitial)
   {
     _transitions.onInitialMount = std::move(animationInitial);
-
-    // `this` pointer needs adjustment since `BuilderBase` is not the first base class of `ComponentBuilderBase`
-    return reinterpret_cast<Derived<PropsBitmap | BuilderBasePropId::transitions> &>(*static_cast<Derived<PropsBitmap> *>(this));
+    return reinterpret_cast<Derived<PropsBitmap | BuilderBasePropId::transitions> &>(*this);
   }
 
   /**
@@ -109,25 +100,11 @@ public:
   auto &animationFinal(CK::Animation::Final animationFinal)
   {
     _transitions.onFinalUnmount = std::move(animationFinal);
-
-    // `this` pointer needs adjustment since `BuilderBase` is not the first base class of `ComponentBuilderBase`
-    return reinterpret_cast<Derived<PropsBitmap | BuilderBasePropId::transitions> &>(*static_cast<Derived<PropsBitmap> *>(this));
+    return reinterpret_cast<Derived<PropsBitmap | BuilderBasePropId::transitions> &>(*this);
   }
-  
-  /**
-   Specifies what accessibility attributes will be aggregated.
 
-   @param attributes A OR-ed list of attributes that will be aggregated by this component.
-   */
-  auto &accessibilityAggregateAttributes(CKAccessibilityAggregatedAttributes attributes = CKAccessibilityAggregatedAttributesAll)
-  {
-    _aggregatedAttributes = attributes;
-    return reinterpret_cast<Derived<PropsBitmap> &>(*this);
-  }
-  
 private:
   CKTransitions _transitions;
-  CKAccessibilityAggregatedAttributes _aggregatedAttributes = CKAccessibilityAggregatedAttributeNone;
 };
 
 namespace ViewConfigBuilderPropId {
@@ -362,27 +339,6 @@ public:
   }
 
   /**
-   Used to determine how a view lays out its content when its bounds change. The default is @c UIViewContentModeScaleToFill .
-
-   @param m A mode to set.
-
-   @note Calling this method on a builder that does not have a view class set will trigger a compilation error.
-
-   @note Calling this method on a builder that already has a complete view configuration set will trigger
-   a compilation error.
-   */
-  auto &contentMode(UIViewContentMode m)
-  {
-    constexpr auto contentModeOverridesExistingViewConfiguration =
-        PropBitmap::isSet(PropsBitmap, ViewConfigBuilderPropId::viewConfig);
-    static_assert(!contentModeOverridesExistingViewConfiguration, "Setting 'contentMode' overrides existing view configuration");
-    constexpr auto viewClassIsSet = PropBitmap::isSet(PropsBitmap, ViewConfigBuilderPropId::viewClass);
-    static_assert(viewClassIsSet, "Cannot set 'contentMode' without setting 'viewClass' first");
-    _attributes.insert({@selector(setContentMode:), m});
-    return reinterpret_cast<Derived<PropsBitmap> &>(*this);
-  }
-
-  /**
    Sets a value for an arbitrary view property by specifying a selector that corresponds to the property setter and the
    value.
 
@@ -586,7 +542,7 @@ public:
    @note Calling this method on a builder that already has a complete view configuration set will trigger
    a compilation error.
    */
-  auto &accessibilityContext(RCAccessibilityContext c)
+  auto &accessibilityContext(CKComponentAccessibilityContext c)
   {
     constexpr auto accessibilityContextOverridesExistingViewConfiguration =
         PropBitmap::isSet(PropsBitmap, ViewConfigBuilderPropId::viewConfig);
@@ -623,7 +579,7 @@ public:
 protected:
   CKComponentViewClass _viewClass;
   CKViewComponentAttributeValueMap _attributes;
-  RCAccessibilityContext _accessibilityCtx;
+  CKComponentAccessibilityContext _accessibilityCtx;
   bool _blockImplicitAnimations;
 };
 
@@ -649,16 +605,12 @@ template <template <PropsBitmapType> class Derived, PropsBitmapType PropsBitmap>
 class __attribute__((__may_alias__)) ComponentBuilderBaseSizeOnly : public BuilderBase<Derived, PropsBitmap> {
 public:
   ComponentBuilderBaseSizeOnly() = default;
-
-  ComponentBuilderBaseSizeOnly(const CK::ComponentSpecContext& context)
-    : BuilderBase<Derived, PropsBitmap>{context} { }
-
   ~ComponentBuilderBaseSizeOnly() = default;
 
   /**
    The width of the component relative to its parent's size.
    */
-  auto &width(RCRelativeDimension w)
+  auto &width(CKRelativeDimension w)
   {
     _size.width = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -676,7 +628,7 @@ public:
   /**
    The height of the component relative to its parent's size.
    */
-  auto &height(RCRelativeDimension h)
+  auto &height(CKRelativeDimension h)
   {
     _size.height = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -694,7 +646,7 @@ public:
   /**
    The minumum allowable width of the component relative to its parent's size.
    */
-  auto &minWidth(RCRelativeDimension w)
+  auto &minWidth(CKRelativeDimension w)
   {
     _size.minWidth = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -703,7 +655,7 @@ public:
   /**
    The minumum allowable height of the component relative to its parent's size.
    */
-  auto &minHeight(RCRelativeDimension h)
+  auto &minHeight(CKRelativeDimension h)
   {
     _size.minHeight = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -712,7 +664,7 @@ public:
   /**
    The maximum allowable width of the component relative to its parent's size.
    */
-  auto &maxWidth(RCRelativeDimension w)
+  auto &maxWidth(CKRelativeDimension w)
   {
     _size.maxWidth = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -721,7 +673,7 @@ public:
   /**
    The maximum allowable height of the component relative to its parent's size.
    */
-  auto &maxHeight(RCRelativeDimension h)
+  auto &maxHeight(CKRelativeDimension h)
   {
     _size.maxHeight = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -730,7 +682,7 @@ public:
   /**
    Specifies a size constraint that should apply to this component.
    */
-  auto &size(RCComponentSize &&s)
+  auto &size(CKComponentSize &&s)
   {
     _size = std::move(s);
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
@@ -739,23 +691,14 @@ public:
   /**
    Specifies a size constraint that should apply to this component.
    */
-  auto &size(const RCComponentSize &s)
+  auto &size(const CKComponentSize &s)
   {
     _size = s;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
   }
-  
-  /**
-   Specifies a size constraint that should apply to this component.
-   */
-  auto &size(const CGSize &s)
-  {
-    _size = RCComponentSize::fromCGSize(s);
-    return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBaseSizeOnlyPropId::size> &>(*this);
-  }
 
 protected:
-  RCComponentSize _size;
+  CKComponentSize _size;
 };
 
 namespace ComponentBuilderBasePropId {
@@ -768,7 +711,7 @@ class __attribute__((__may_alias__)) ComponentBuilderBase : public ViewConfigBui
  protected:
   ComponentBuilderBase() = default;
 
-  ComponentBuilderBase(const CK::ComponentSpecContext& context)
+  ComponentBuilderBase(CK::ComponentSpecContext context)
     : BuilderBase<Derived, PropsBitmap>{context} { }
 
   ComponentBuilderBase(const ComponentBuilderBase &) = default;
@@ -800,7 +743,7 @@ public:
   /**
    The width of the component relative to its parent's size.
    */
-  auto &width(RCRelativeDimension w)
+  auto &width(CKRelativeDimension w)
   {
     _size.width = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -818,7 +761,7 @@ public:
   /**
    The height of the component relative to its parent's size.
    */
-  auto &height(RCRelativeDimension h)
+  auto &height(CKRelativeDimension h)
   {
     _size.height = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -836,7 +779,7 @@ public:
   /**
    The minumum allowable width of the component relative to its parent's size.
    */
-  auto &minWidth(RCRelativeDimension w)
+  auto &minWidth(CKRelativeDimension w)
   {
     _size.minWidth = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -845,7 +788,7 @@ public:
   /**
    The minumum allowable height of the component relative to its parent's size.
    */
-  auto &minHeight(RCRelativeDimension h)
+  auto &minHeight(CKRelativeDimension h)
   {
     _size.minHeight = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -854,7 +797,7 @@ public:
   /**
    The maximum allowable width of the component relative to its parent's size.
    */
-  auto &maxWidth(RCRelativeDimension w)
+  auto &maxWidth(CKRelativeDimension w)
   {
     _size.maxWidth = w;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -863,7 +806,7 @@ public:
   /**
    The maximum allowable height of the component relative to its parent's size.
    */
-  auto &maxHeight(RCRelativeDimension h)
+  auto &maxHeight(CKRelativeDimension h)
   {
     _size.maxHeight = h;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -872,7 +815,7 @@ public:
   /**
    Specifies a size constraint that should apply to this component.
    */
-  auto &size(RCComponentSize &&s)
+  auto &size(CKComponentSize &&s)
   {
     _size = std::move(s);
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
@@ -881,24 +824,15 @@ public:
   /**
    Specifies a size constraint that should apply to this component.
    */
-  auto &size(const RCComponentSize &s)
+  auto &size(const CKComponentSize &s)
   {
     _size = s;
     return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
   }
 
-  /**
-   Specifies a size constraint that should apply to this component.
-   */
-  auto &size(const CGSize &s)
-  {
-    _size = RCComponentSize::fromCGSize(s);
-    return reinterpret_cast<Derived<PropsBitmap | ComponentBuilderBasePropId::size> &>(*this);
-  }
-
 protected:
-  CKComponentViewConfiguration _viewConfig{};
-  RCComponentSize _size{};
+  CKComponentViewConfiguration _viewConfig;
+  CKComponentSize _size;
 };
 
 template <PropsBitmapType = 0>
@@ -941,7 +875,7 @@ auto ComponentBuilder() -> ComponentBuilderEmpty;
  .height(100)
  .build()
  */
-auto ComponentBuilder(const CK::ComponentSpecContext& c) -> ComponentBuilderContext;
+auto ComponentBuilder(CK::ComponentSpecContext c) -> ComponentBuilderContext;
 
 using ViewConfig = BuilderDetails::ViewConfigBuilder<>;
 
@@ -954,11 +888,11 @@ class __attribute__((__may_alias__)) ComponentBuilder : public ComponentBuilderB
 
 private:
   ComponentBuilder() = default;
-  ComponentBuilder(const CK::ComponentSpecContext& context)
+  ComponentBuilder(CK::ComponentSpecContext context)
     : ComponentBuilderBase<ComponentBuilder, PropsBitmap>{context} { }
 
   friend auto CK::ComponentBuilder() -> ComponentBuilderEmpty;
-  friend auto CK::ComponentBuilder(const CK::ComponentSpecContext&) -> ComponentBuilderContext;
+  friend auto CK::ComponentBuilder(CK::ComponentSpecContext) -> ComponentBuilderContext;
 
   template <template <PropsBitmapType> class, PropsBitmapType>
   friend class BuilderBase;
@@ -989,7 +923,7 @@ private:
     } else if (PropBitmap::isSet(PropsBitmap, ComponentBuilderBasePropId::size)) {
       return [CKComponent newWithView:{} size:this->_size];
     } else {
-      return [CKComponent new];
+      return [CKComponent newWithView:{} size:{}];
     }
   }
 };

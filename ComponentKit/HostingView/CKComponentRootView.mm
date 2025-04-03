@@ -11,11 +11,9 @@
 #import "CKComponentRootView.h"
 #import "CKComponentRootViewInternal.h"
 
-#import <RenderCore/RCAssert.h>
-#import <ComponentKit/CKComponent+UIView.h>
-#import "CKComponentAttachControllerInternal.h"
+#import <ComponentKit/CKAssert.h>
 
-#import <ComponentKit/CKAccessibilityAwareComponent.h>
+#import "CKComponentAttachControllerInternal.h"
 
 @implementation CKComponentRootView {
   BOOL _allowTapPassthrough;
@@ -25,13 +23,18 @@ static NSMutableArray *hitTestHooks;
 
 - (void)setAllowTapPassthrough:(BOOL)allowTapPassthrough
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   _allowTapPassthrough = allowTapPassthrough;
+}
+
+- (void)willEnterViewPool
+{
+  // Subclass should override this to release resource.
 }
 
 + (void)addHitTestHook:(CKComponentRootViewHitTestHook)hook
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   if (hitTestHooks == nil) {
     hitTestHooks = [NSMutableArray array];
   }
@@ -40,7 +43,7 @@ static NSMutableArray *hitTestHooks;
 
 + (NSArray *)hitTestHooks
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   return [NSArray arrayWithArray:hitTestHooks];
 }
 
@@ -64,12 +67,12 @@ static NSMutableArray *hitTestHooks;
   return superHitView;
 }
 
-- (RCLayout)mountedLayout
+- (CKComponentLayout)mountedLayout
 {
   // It's weird to reach into ck_attachState here. ck_attachState should probably be refactored
   // to simply be a concrete method on this class, instead of a category.
   CKComponentAttachState *const attachState = CKGetAttachStateForView(self);
-  return attachState ? CKComponentAttachStateRootLayout(attachState).layout() : RCLayout();
+  return attachState ? CKComponentAttachStateRootLayout(attachState).layout() : CKComponentLayout();
 }
 
 - (id<NSObject>)uniqueIdentifier
@@ -77,25 +80,5 @@ static NSMutableArray *hitTestHooks;
   auto const scopeRootIdentifier = CKGetAttachStateForView(self).scopeIdentifier;
   return scopeRootIdentifier > 0 ? @(scopeRootIdentifier) : nil;
 }
-
-- (void)setAccessibilityElements:(NSArray *)accessibilityElements {
-  RCFailAssert(@"Attempt to setAccessibilityElements in %@", NSStringFromClass([self class]));
-}
-
-- (NSArray *)accessibilityElements {
-  // This check is needed to only use the new accessibility API
-  // in the surfaces we are testing.
-  // It will be removed (along with CKAccessibilityAwareComponent)
-  // when we do a full rollout
-  const auto rootComponent = [self mountedLayout].component;
-
-  if (IsAccessibilityBasedOnComponent((CKComponent *)rootComponent)) {
-    return @[rootComponent];
-  }
-  return [super accessibilityElements];
-}
-
-
-
 
 @end

@@ -11,8 +11,8 @@
 #import <Foundation/Foundation.h>
 #import <XCTest/XCTest.h>
 
-#import <ComponentTextKit/CKTextKitContext.h>
-#import <ComponentTextKit/CKTextKitTailTruncater.h>
+#import <ComponentKit/CKTextKitContext.h>
+#import <ComponentKit/CKTextKitTailTruncater.h>
 
 @interface CKTextKitTruncationTests : XCTestCase
 

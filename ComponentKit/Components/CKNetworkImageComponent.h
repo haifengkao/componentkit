@@ -25,15 +25,13 @@ struct CKNetworkImageComponentOptions {
 /** Renders an image from a URL. */
 @interface CKNetworkImageComponent : CKComponent
 
-CK_COMPONENT_INIT_UNAVAILABLE;
-
 /**
  @param options See CKNetworkImageComponentOptions
  @param attributes Applied to the underlying UIImageView.
  */
 + (instancetype)newWithURL:(NSURL *)url
            imageDownloader:(id<CKNetworkImageDownloading>)imageDownloader
-                      size:(const RCComponentSize &)size
+                      size:(const CKComponentSize &)size
                    options:(const CKNetworkImageComponentOptions &)options
                 attributes:(const CKViewComponentAttributeValueMap &)attributes;
 

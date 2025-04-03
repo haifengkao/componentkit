@@ -11,8 +11,8 @@
 #import <UIKit/UIKit.h>
 
 
-#import <ComponentKit/CKDefines.h>
-#import <ComponentKit/RCComponentSize.h>
+#import <ComponentKit/CKMacros.h>
+#import <ComponentKit/CKComponentSize.h>
 
 typedef NS_ENUM(NSUInteger, CKComponentHostingViewWrapperType) {
   CKComponentHostingViewWrapperTypeNone,
@@ -24,27 +24,29 @@ typedef NS_ENUM(NSUInteger, CKComponentHostingViewWrapperType) {
 
 @interface CKComponentHostingViewTestModel : NSObject
 
-CK_INIT_UNAVAILABLE;
+- (instancetype)initWithColor:(UIColor *)color
+                         size:(const CKComponentSize &)size;
 
 - (instancetype)initWithColor:(UIColor *)color
-                         size:(const RCComponentSize &)size;
+                         size:(const CKComponentSize &)size
+                  wrapperType:(CKComponentHostingViewWrapperType)wrapperType;
 
-- (instancetype)initWithColor:(UIColor *)color
-                         size:(const RCComponentSize &)size
-                  wrapperType:(CKComponentHostingViewWrapperType)wrapperType
-        willGenerateComponent:(void(^)())willGenerateComponent NS_DESIGNATED_INITIALIZER;
+- (instancetype)init CK_NOT_DESIGNATED_INITIALIZER_ATTRIBUTE;
 
 @property (nonatomic, strong, readonly) UIColor *color;
-@property (nonatomic, readonly) RCComponentSize size;
+@property (nonatomic, readonly) CKComponentSize size;
 @property (nonatomic, readonly) CKComponentHostingViewWrapperType wrapperType;
-@property (nonatomic, copy, readonly) void(^willGenerateComponent)();
 
 @end
 
 @class CKComponent;
 
-CK_EXTERN_C_BEGIN
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 CKComponent *CKComponentWithHostingViewTestModel(CKComponentHostingViewTestModel *model);
 
-CK_EXTERN_C_END
+#ifdef __cplusplus
+}
+#endif

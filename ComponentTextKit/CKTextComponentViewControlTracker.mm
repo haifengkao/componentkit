@@ -10,8 +10,8 @@
 
 #import "CKTextComponentViewControlTracker.h"
 
-#import <ComponentTextKit/CKTextKitRenderer+Positioning.h>
-#import <ComponentTextKit/CKTextKitRenderer+TextChecking.h>
+#import <ComponentKit/CKTextKitRenderer+Positioning.h>
+#import <ComponentKit/CKTextKitRenderer+TextChecking.h>
 
 #import "CKTextComponentLayer.h"
 #import "CKTextComponentLayerHighlighter.h"

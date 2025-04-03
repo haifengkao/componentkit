@@ -18,8 +18,6 @@
 #import <ComponentKit/CKComponentGestureActions.h>
 #import <ComponentKit/CKComponentGestureActionsInternal.h>
 
-#import "CKComponentTestCase.h"
-
 @interface CKFakeActionComponent : CKComponent <UIGestureRecognizerDelegate>
 - (void)test:(CKComponent *)sender;
 @property (nonatomic, assign) BOOL receivedTest;
@@ -28,7 +26,7 @@
 
 @end
 
-@interface CKComponentGestureActionsTests : CKComponentTestCase
+@interface CKComponentGestureActionsTests : XCTestCase
 @end
 
 @implementation CKComponentGestureActionsTests

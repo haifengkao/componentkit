@@ -15,12 +15,13 @@
 #import <Foundation/Foundation.h>
 
 #import <ComponentKit/CKComponentContext.h>
-#import <ComponentKit/CKTreeNode.h>
+#import <ComponentKit/CKComponentScopeTypes.h>
 #import <ComponentKit/CKUpdateMode.h>
 
 #include <memory>
 
 class CKThreadLocalComponentScope;
+@class CKComponentScopeHandle;
 
 typedef void (^CKComponentStateUpdater)(id (^updateBlock)(id),
                                         NSDictionary<NSString *, id> * userInfo,
@@ -58,15 +59,15 @@ public:
                               for why this is usually a bad idea:
                               http://facebook.github.io/react/tips/props-in-getInitialState-as-anti-pattern.html
    */
-  explicit CKComponentScope(Class __unsafe_unretained componentClass, id identifier = nil, id (^initialStateCreator)(void) = nil) noexcept;
+  CKComponentScope(Class __unsafe_unretained componentClass, id identifier = nil, id (^initialStateCreator)(void) = nil) noexcept;
 
   ~CKComponentScope();
 
   /** @return The current state for the component being built. */
   id state(void) const noexcept;
 
-  /** @return The tree node identifer for the component being built. */
-  CKTreeNodeIdentifier identifier(void) const noexcept;
+  /** @return The scope identifer for the component being built. */
+  CKComponentScopeHandleIdentifier identifier(void) const noexcept;
 
   /**
    @return A block that schedules a state update when invoked.
@@ -78,11 +79,11 @@ public:
   CKComponentStateUpdater stateUpdater(void) const noexcept;
 
   /**
-   @return The tree node associated with this scope.
+   @return The scope handle associated with this scope.
    @discussion This is exposed for use by the framework. You should almost certainly never call this for any reason
                in your components.
    */
-  CKTreeNode *node(void) const noexcept;
+  CKComponentScopeHandle *scopeHandle(void) const noexcept;
 
   /**
    Replaces the state for a scope *without* scheduling a state update and triggering another render pass.
@@ -97,13 +98,13 @@ public:
    The analogous feature in React is getDerivedStateFromProps, which allows you to update state in response to
    props changing.
    */
-  static void replaceState(const CKComponentScope &scope, id newState) noexcept;
+  static void replaceState(const CKComponentScope &scope, id newState);
 
 private:
   CKComponentScope(const CKComponentScope&) = delete;
   CKComponentScope &operator=(const CKComponentScope&) = delete;
   CKThreadLocalComponentScope *_threadLocalScope;
-  CKTreeNode *_node;
+  CKComponentScopeHandle *_scopeHandle;
 };
 
 #endif

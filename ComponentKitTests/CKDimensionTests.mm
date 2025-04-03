@@ -12,13 +12,13 @@
 
 #import <limits>
 
-#import <RenderCore/RCDimension.h>
+#import <ComponentKit/CKDimension.h>
 
 
-@interface RCDimensionTests : XCTestCase
+@interface CKDimensionTests : XCTestCase
 @end
 
-@implementation RCDimensionTests
+@implementation CKDimensionTests
 
 - (void)testIntersectingOverlappingSizeRangesReturnsTheirIntersection
 {
@@ -87,14 +87,14 @@
 
 @end
 
-@interface RCRelativeDimensionTests: XCTestCase
+@interface CKRelativeDimensionTests: XCTestCase
 @end
 
-@implementation RCRelativeDimensionTests
+@implementation CKRelativeDimensionTests
 
 - (void)test_ResolvingPercentageAgainstInfinity_ReturnsAutoSize
 {
-  const auto percentDimension = RCRelativeDimension::Percent(1);
+  const auto percentDimension = CKRelativeDimension::Percent(1);
   const auto autoSize = 42;
 
   XCTAssertEqual(percentDimension.resolve(autoSize, std::numeric_limits<CGFloat>::infinity()), autoSize);

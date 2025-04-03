@@ -15,7 +15,9 @@
 #import <stdlib.h>
 #import <pthread.h>
 
-#import <RenderCore/RCAssert.h>
+#import <libkern/OSAtomic.h>
+
+#import <RenderCore/CKAssert.h>
 
 #if defined (__GNUC__)
 # define CK_NOTHROW __attribute__ ((nothrow))
@@ -30,13 +32,13 @@
 #define CK_MUTEX_RECURSIVE_INITIALIZER {PTHREAD_RECURSIVE_MUTEX_INITIALIZER}
 
 // This MUST always execute, even when assertions are disabled. Otherwise all lock operations become no-ops!
-// (To be explicit, do not turn this into an RCAssert, NSAssert, assert(), or any other kind of statement where the
+// (To be explicit, do not turn this into an CKAssert, NSAssert, assert(), or any other kind of statement where the
 // evaluation of x_ can be compiled out.)
 #define CK_THREAD_ASSERT_ON_ERROR(x_) do { \
   _Pragma("clang diagnostic push"); \
   _Pragma("clang diagnostic ignored \"-Wunused-variable\""); \
   volatile int res = (x_); \
-  RCCAssert(res == 0, @" %@ returned %d", @#x_, res); \
+  CKCAssert(res == 0, @" %@ returned %d", @#x_, res); \
   _Pragma("clang diagnostic pop"); \
 } while (0)
 
@@ -74,15 +76,15 @@ namespace CK {
     Mutex (const Mutex&) = delete;
     Mutex &operator=(const Mutex&) = delete;
 
-    void lock () noexcept {
+    void lock () {
       CK_THREAD_ASSERT_ON_ERROR(pthread_mutex_lock (this->mutex()));
     }
 
-    void unlock () noexcept {
+    void unlock () {
       CK_THREAD_ASSERT_ON_ERROR(pthread_mutex_unlock (this->mutex()));
     }
 
-    pthread_mutex_t *mutex () noexcept { return &_m; }
+    pthread_mutex_t *mutex () { return &_m; }
 
   protected:
     explicit Mutex (bool recursive) {
@@ -117,15 +119,15 @@ namespace CK {
   {
     pthread_mutex_t _m; // public so it can be provided by CK_MUTEX_INITIALIZER and friends
 
-    void lock () noexcept {
+    void lock () {
       CK_THREAD_ASSERT_ON_ERROR(pthread_mutex_lock (this->mutex()));
     }
 
-    void unlock () noexcept {
+    void unlock () {
       CK_THREAD_ASSERT_ON_ERROR(pthread_mutex_unlock (this->mutex()));
     }
 
-    pthread_mutex_t *mutex () noexcept { return &_m; }
+    pthread_mutex_t *mutex () { return &_m; }
 
     StaticMutex(const StaticMutex&) = delete;
     StaticMutex &operator=(const StaticMutex&) = delete;

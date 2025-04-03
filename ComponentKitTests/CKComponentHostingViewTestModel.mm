@@ -17,24 +17,21 @@
 @implementation CKComponentHostingViewTestModel
 
 - (instancetype)initWithColor:(UIColor *)color
-                         size:(const RCComponentSize &)size
+                         size:(const CKComponentSize &)size
 {
   return [self initWithColor:color
                         size:size
-                 wrapperType:CKComponentHostingViewWrapperTypeNone
-       willGenerateComponent:nil];
+                 wrapperType:CKComponentHostingViewWrapperTypeNone];
 }
 
 - (instancetype)initWithColor:(UIColor *)color
-                         size:(const RCComponentSize &)size
+                         size:(const CKComponentSize &)size
                   wrapperType:(CKComponentHostingViewWrapperType)wrapperType
-        willGenerateComponent:(void (^)())willGenerateComponent
 {
   if (self = [super init]) {
     _color = color;
     _size = size;
     _wrapperType = wrapperType;
-    _willGenerateComponent = willGenerateComponent;
   }
   return self;
 }
@@ -56,9 +53,6 @@ static CKComponent *componentWithDeepViewHierarchy(NSInteger viewLevel)
 
 CKComponent *CKComponentWithHostingViewTestModel(CKComponentHostingViewTestModel *model)
 {
-  if (model.willGenerateComponent) {
-    model.willGenerateComponent();
-  }
   switch(model.wrapperType) {
     case CKComponentHostingViewWrapperTypeTestComponent: {
       return

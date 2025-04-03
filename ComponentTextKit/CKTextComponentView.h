@@ -10,7 +10,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import <ComponentTextKit/CKTextKitAttributes.h>
+#import <ComponentKit/CKTextKitAttributes.h>
 
 enum {
   CKUIControlEventTextViewDidBeginHighlightingText  = 1 << 24,

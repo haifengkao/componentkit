@@ -70,11 +70,7 @@ class __attribute__((__may_alias__)) BackgroundLayoutComponentBuilder
     constexpr auto backgroundIsSet = PropBitmap::isSet(PropsBitmap, BackgroundLayoutComponentPropId::background);
     static_assert(backgroundIsSet, "Required property 'background' is not set.");
 
-    if (_component != nil) {
-      return [[CKBackgroundLayoutComponent alloc] initWithComponent:_component background:_background];
-    } else {
-      return nil;
-    }
+    return [CKBackgroundLayoutComponent newWithComponent:_component background:_background];
   }
 
  private:

@@ -17,11 +17,9 @@
 #import <ComponentKit/CKComponentSubclass.h>
 #import <ComponentKit/CKStaticLayoutComponent.h>
 
-#import "CKComponentTestCase.h"
-
 @protocol CKAnalyticsListener;
 
-@interface CKComponentMountContextLayoutGuideTests : CKComponentTestCase
+@interface CKComponentMountContextLayoutGuideTests : XCTestCase
 @end
 
 @interface CKLayoutGuideTestComponent : CKComponent
@@ -86,11 +84,13 @@
 @implementation CKLayoutGuideTestComponent
 
 - (CK::Component::MountResult)mountInContext:(const CK::Component::MountContext &)context
-                                      layout:(const RCLayout &)layout
+                                        size:(const CGSize)size
+                                    children:(std::shared_ptr<const std::vector<CKComponentLayoutChild>>)children
                               supercomponent:(CKComponent *)supercomponent
 {
   const CK::Component::MountResult mountResult = [super mountInContext:context
-                                                                layout:layout
+                                                                  size:size
+                                                              children:children
                                                         supercomponent:supercomponent];
   _layoutGuideUsedAtMountTime = context.layoutGuide;
   return mountResult;

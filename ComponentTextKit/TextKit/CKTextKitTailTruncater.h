@@ -14,7 +14,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import <ComponentTextKit/CKTextKitTruncating.h>
+#import <ComponentKit/CKTextKitTruncating.h>
 
 @interface CKTextKitTailTruncater : NSObject <CKTextKitTruncating>
 

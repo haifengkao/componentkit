@@ -15,7 +15,7 @@
 #import <Foundation/Foundation.h>
 
 struct CKComponentContextPreviousState {
-  Class key;
+  id key;
   id originalValue;
   id newValue;
 };
@@ -30,23 +30,23 @@ struct CKComponentContextContents {
 
 /** Internal helper class. Avoid using this externally. */
 struct CKComponentContextHelper {
-  static CKComponentContextPreviousState store(id key, id object) noexcept;
-  static void restore(const CKComponentContextPreviousState &storeResult) noexcept;
-  static id fetch(id key) noexcept; // Fetch value from CKComponentContext.
-  static id fetchMutable(id key) noexcept; // Fetch value from CKComponentMutableContext.
+  static CKComponentContextPreviousState store(id key, id object);
+  static void restore(const CKComponentContextPreviousState &storeResult);
+  static id fetch(id key); // Fetch value from CKComponentContext.
+  static id fetchMutable(id key); // Fetch value from CKComponentMutableContext.
 
   /** Creates a backup of the existing store, in the renderToDictionary map */
-  static void didCreateRenderComponent(id component) noexcept;
+  static void didCreateRenderComponent(id component);
   /** Pushes the existing store into a stack and change it with the one from the component's backup */
-  static void willBuildComponentTree(id component) noexcept;
+  static void willBuildComponentTree(id component);
   /** Restores the previous store from the stack */
-  static void didBuildComponentTree(id component) noexcept;
+  static void didBuildComponentTree(id component);
 
   /**
    Returns a structure with all the items that are currently in CKComponentContext.
    This could be used to bridge CKComponentContext items to another language or system.
    */
-  static CKComponentContextContents fetchAll() noexcept;
+  static CKComponentContextContents fetchAll();
 };
 
 
@@ -63,9 +63,9 @@ public:
 
 private:
   /** Provides a way to set initial context values. */
-  static NSMutableDictionary<Class, id>* setInitialValues(NSDictionary<Class, id> *objects) noexcept;
+  static NSMutableDictionary<Class, id>* setInitialValues(NSDictionary<Class, id> *objects);
   /** Provide a way to clean the initial values that were set with `setInitialValues`.*/
-  static void cleanInitialValues(NSMutableDictionary<Class, id> *oldObjects) noexcept;
+  static void cleanInitialValues(NSMutableDictionary<Class, id> *oldObjects);
   /** Save the old objects. */
   NSMutableDictionary *_oldObjects;
 

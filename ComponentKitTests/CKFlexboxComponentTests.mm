@@ -13,27 +13,24 @@
 #import <ComponentKit/CKFlexboxComponent.h>
 #import <ComponentKit/CKCompositeComponent.h>
 #import <ComponentKit/CKComponentLayout.h>
-#import <ComponentKit/CKComponent+Yoga.h>
 
 #import "yoga/Yoga.h"
-
-#import "CKComponentTestCase.h"
 
 @interface CKFlexboxComponent (Test)
 
 - (YGNodeRef)ygNode:(CKSizeRange)constrainedSize;
-- (RCLayout)layoutThatFits:(CKSizeRange)constrainedSize parentSize:(CGSize)parentSize;
+- (CKComponentLayout)layoutThatFits:(CKSizeRange)constrainedSize parentSize:(CGSize)parentSize;
 
 @end
 
-@interface CKFlexboxComponentTests : CKComponentTestCase
+@interface CKFlexboxComponentTests : XCTestCase
 @end
 
 @implementation CKFlexboxComponentTests
 
 - (void)testSizeTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .child(CK::ComponentBuilder()
            .viewClass([UIView class])
@@ -77,7 +74,7 @@
 
 - (void)testDirectionTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .build();
   YGNodeRef node = [component ygNode:{{0, 0}, {0, 0}}];
@@ -100,7 +97,7 @@
 
 - (void)testJustifyTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .build();
   YGNodeRef node = [component ygNode:{{0, 0}, {0, 0}}];
@@ -130,7 +127,7 @@
 
 - (void)testAlignItemsTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .build();
   YGNodeRef node = [component ygNode:{{0, 0}, {0, 0}}];
@@ -163,7 +160,7 @@
 
 - (void)testAlignChildTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .child(CK::ComponentBuilder()
             .viewClass([UIView class])
@@ -207,7 +204,7 @@
 
 - (void)testFlexGrowShrinkTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .child(CK::ComponentBuilder()
            .viewClass([UIView class])
@@ -244,7 +241,7 @@
 
 - (void)testFlexBasisTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .child(CK::ComponentBuilder()
             .viewClass([UIView class])
@@ -252,7 +249,7 @@
                                       .child(CK::ComponentBuilder()
             .viewClass([UIView class])
             .build())
-                                          .flexBasis(RCRelativeDimension::Auto())
+                                          .flexBasis(CKRelativeDimension::Auto())
                                       .child(CK::ComponentBuilder()
             .viewClass([UIView class])
             .build())
@@ -260,7 +257,7 @@
                                       .child(CK::ComponentBuilder()
             .viewClass([UIView class])
             .build())
-                                          .flexBasis(RCRelativeDimension::Percent(0.5))
+                                          .flexBasis(CKRelativeDimension::Percent(0.5))
                                       .build();
   YGNodeRef node = [component ygNode:{{0, 300}, {0, 300}}];
 
@@ -276,7 +273,7 @@
 
 - (void)testSpacingTranslation
 {
-  CKComponent *component = CK::FlexboxComponentBuilder()
+  CKFlexboxComponent *component = CK::FlexboxComponentBuilder()
                                       .alignItems(CKFlexboxAlignItemsStart)
                                       .spacing(5)
                                       .child(CK::ComponentBuilder()
@@ -411,14 +408,15 @@
 
 - (void)testSameLayoutIsCalculatedWithAndWithoutDeepYogaTrees
 {
-  RCLayout(^buildComponentTreeAndComputeLayout)(BOOL) = ^RCLayout(BOOL useDeepYogaTrees) {
-    CKComponent *component =
+  CKComponentLayout(^buildComponentTreeAndComputeLayout)(BOOL) = ^CKComponentLayout(BOOL useDeepYogaTrees) {
+    CKFlexboxComponent *component =
     CK::FlexboxComponentBuilder()
         .alignItems(CKFlexboxAlignItemsStart)
         .spacing(5)
         .useDeepYogaTrees(useDeepYogaTrees)
-        .child(CK::CompositeComponentBuilder()
-                   .component(CK::FlexboxComponentBuilder()
+        .child([CKCompositeComponent
+                       newWithComponent:
+                       CK::FlexboxComponentBuilder()
                            .alignItems(CKFlexboxAlignItemsStart)
                            .spacing(5)
                            .useDeepYogaTrees(useDeepYogaTrees)
@@ -441,8 +439,7 @@
                                 .build())
                                .spacingBefore(-10)
                                .spacingAfter(10)
-                           .build())
-                   .build())
+                           .build()])
         .child(CK::ComponentBuilder()
              .viewClass([UIView class])
              .build())
@@ -484,7 +481,7 @@
   const CKSizeRange kSize = {{500, 500}, {500, 500}};
   auto const layout = [flexbox layoutThatFits:kSize parentSize:kSize.max];
   auto components = std::vector<id<CKMountable>>{};
-  layout.enumerateLayouts([&](const RCLayout &l) {
+  layout.enumerateLayouts([&](const CKComponentLayout &l) {
     if (![l.component isKindOfClass:[CKFlexboxComponent class]]) {
       components.push_back(l.component);
     }
@@ -493,7 +490,7 @@
   XCTAssert(components == expected);
 }
 
-static BOOL areLayoutsEqual(const RCLayout &left, const RCLayout &right) {
+static BOOL areLayoutsEqual(const CKComponentLayout &left, const CKComponentLayout &right) {
   if (left.component.class != right.component.class) {
     return NO;
   }
@@ -502,7 +499,7 @@ static BOOL areLayoutsEqual(const RCLayout &left, const RCLayout &right) {
     return NO;
   }
 
-  for(std::vector<RCLayoutChild>::size_type i = 0; i != left.children->size(); i++) {
+  for(std::vector<CKComponentLayoutChild>::size_type i = 0; i != left.children->size(); i++) {
     auto leftChild = left.children->at(i);
     auto rightChild = right.children->at(i);
 

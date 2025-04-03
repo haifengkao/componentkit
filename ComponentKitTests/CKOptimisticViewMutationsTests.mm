@@ -18,9 +18,7 @@
 #import <ComponentKit/CKComponentSubclass.h>
 #import <ComponentKit/CKOptimisticViewMutations.h>
 
-#import "CKComponentTestCase.h"
-
-@interface CKOptimisticViewMutationsTests : CKComponentTestCase
+@interface CKOptimisticViewMutationsTests : XCTestCase
 @end
 
 @implementation CKOptimisticViewMutationsTests
@@ -84,11 +82,13 @@
 
 - (void)testFunctionBasedViewMutationsAreAppliedAndTornDownCorrectly
 {
-  auto const buttonComponent =
-  CK::ButtonComponentBuilder()
-      .action(nullptr)
-      .title(@"Original")
-      .build();
+  CKButtonComponent *buttonComponent =
+  [CKButtonComponent
+   newWithAction:nullptr
+   options:{
+     .titles = @"Original",
+   }
+  ];
   CKComponentLifecycleTestHelper *componentLifecycleTestController = [[CKComponentLifecycleTestHelper alloc] initWithComponentProvider:nullptr
                                                                                                                              sizeRangeProvider:nil];
   [componentLifecycleTestController updateWithState:{

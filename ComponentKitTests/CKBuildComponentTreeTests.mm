@@ -22,9 +22,8 @@
 #import <ComponentKit/CKButtonComponent.h>
 #import <ComponentKit/CKComponentScopeRootFactory.h>
 #import <ComponentKit/CKThreadLocalComponentScope.h>
-#import <ComponentKit/CKTreeNode.h>
-
-#import "CKComponentTestCase.h"
+#import <ComponentKit/CKRenderTreeNode.h>
+#import <ComponentKit/CKScopeTreeNode.h>
 
 /** A helper class that inherits from 'CKRenderComponent'; render the component from the initializer */
 @interface CKComponentTreeTestComponent_Render : CKRenderComponent
@@ -39,7 +38,7 @@
 
 #pragma mark - Tests
 
-@interface CKBuildComponentTreeTests : CKComponentTestCase
+@interface CKBuildComponentTreeTests : XCTestCase
 @end
 
 @implementation CKBuildComponentTreeTests
@@ -49,13 +48,13 @@
 - (void)test_buildComponentTree_onCKComponent
 {
   auto const scopeRoot = CKComponentScopeRootWithDefaultPredicates(nil, nil);
-  auto const root = [scopeRoot rootNode].node();
+  auto const root = scopeRoot.rootNode.node();
   CKComponent *c = [CKComponentTreeTestComponent_Render new];
 
   [c buildComponentTree:root previousParent:nil params:{
     .scopeRoot = scopeRoot,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerNone,
+    .buildTrigger = CKBuildTrigger::NewTree,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
 
@@ -63,15 +62,15 @@
   XCTAssertEqual(root.children[0].component, c);
 
   // Simulate a second tree creation.
-  auto const scopeRoot2 = [scopeRoot.asNullable() newRoot];
-  auto const root2 = [scopeRoot2 rootNode].node();
+  auto const scopeRoot2 = [scopeRoot newRoot];
+  auto const root2 = scopeRoot2.rootNode.node();
   CKComponent *c2 = [CKComponentTreeTestComponent_Render new];
 
   [c2 buildComponentTree:root2 previousParent:root params:{
     .scopeRoot = scopeRoot2,
     .previousScopeRoot = scopeRoot,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerPropsUpdate,
+    .buildTrigger = CKBuildTrigger::PropsUpdate,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
   XCTAssertTrue(areTreesEqual(root, root2));
@@ -82,14 +81,14 @@
 - (void)test_buildComponentTree_onCKRenderComponent
 {
   auto const scopeRoot = CKComponentScopeRootWithDefaultPredicates(nil, nil);
-  auto const root = [scopeRoot rootNode].node();
+  auto const root = scopeRoot.rootNode.node();
   CKComponent *c = [CKComponentTreeTestComponent_Render new];
 
   CKRenderComponent *renderComponent = [CKComponentTreeTestComponent_Render newWithComponent:c];
   [renderComponent buildComponentTree:root previousParent:nil params:{
     .scopeRoot = scopeRoot,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerNone,
+    .buildTrigger = CKBuildTrigger::NewTree,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
 
@@ -99,13 +98,18 @@
   verifyChildToParentConnection(root, singleChildNode, renderComponent);
 
   // Check the next level of the tree
-  XCTAssertEqual(singleChildNode.children.size(), 1);
-  CKTreeNode *componentNode = singleChildNode.children[0];
-  verifyChildToParentConnection(singleChildNode, componentNode, c);
+  if ([singleChildNode conformsToProtocol:@protocol(CKTreeNodeWithChildrenProtocol)]) {
+    auto const parentNode = (id<CKTreeNodeWithChildrenProtocol>)singleChildNode;
+    XCTAssertEqual(parentNode.children.size(), 1);
+    CKTreeNode *componentNode = parentNode.children[0];
+    verifyChildToParentConnection(parentNode, componentNode, c);
+  } else {
+    XCTFail(@"singleChildNode has to conform to CKTreeNodeWithChildrenProtocol as it has a child.");
+  }
 
   // Simulate a second tree creation.
-  auto const scopeRoot2 = [scopeRoot.asNullable() newRoot];
-  auto const root2 = [scopeRoot2 rootNode].node();
+  auto const scopeRoot2 = [scopeRoot newRoot];
+  auto const root2 = scopeRoot2.rootNode.node();
   CKComponent *c2 = [CKComponentTreeTestComponent_Render new];
 
   CKRenderComponent *renderComponent2 = [CKComponentTreeTestComponent_Render newWithComponent:c2];
@@ -113,7 +117,7 @@
     .scopeRoot = scopeRoot2,
     .previousScopeRoot = scopeRoot,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerPropsUpdate,
+    .buildTrigger = CKBuildTrigger::PropsUpdate,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
   XCTAssertTrue(areTreesEqual(root, root2));
@@ -125,7 +129,7 @@
 {
   CKThreadLocalComponentScope threadScope(CKComponentScopeRootWithDefaultPredicates(nil, nil), {});
   auto const scopeRoot = threadScope.newScopeRoot;
-  auto const root = [CKTreeNode rootNode];
+  auto const root = [CKScopeTreeNode new];
   CKComponent *c10 = [CKComponentTreeTestComponent_Render new];
   CKComponent *c11 = [CKComponentTreeTestComponent_Render new];
   auto renderWithChidlrenComponent = [CKTestLayoutComponent newWithChildren:{c10, c11}];
@@ -133,7 +137,7 @@
     .scopeRoot = scopeRoot,
     .previousScopeRoot = nil,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerNone,
+    .buildTrigger = CKBuildTrigger::NewTree,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
 
@@ -141,7 +145,7 @@
   XCTAssertTrue(verifyComponentsInNode(root, @[c10, c11]));
 
   // Simulate a second tree creation.
-  auto const scopeRoot2 = [scopeRoot.asNullable() newRoot];
+  auto const scopeRoot2 = [scopeRoot newRoot];
   auto const root2 = scopeRoot2.rootNode.node();
   CKComponent *c20 = [CKComponentTreeTestComponent_Render new];
   CKComponent *c21 = [CKComponentTreeTestComponent_Render new];
@@ -150,7 +154,7 @@
     .scopeRoot = scopeRoot2,
     .previousScopeRoot = scopeRoot,
     .stateUpdates = {},
-    .buildTrigger = CKBuildTriggerPropsUpdate,
+    .buildTrigger = CKBuildTrigger::PropsUpdate,
     .treeNodeDirtyIds = {},
   } parentHasStateUpdate:NO];
   XCTAssertTrue(areTreesEqual(root, root2));
@@ -160,11 +164,11 @@
 
 - (void)test_renderComponentHelpers_treeNodeDirtyIdsFor_onNewTreeAndPropsUpdate
 {
-  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTriggerNone).empty(), @"It is not expected to have dirty nodes when new tree generation is triggered");
-  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTriggerPropsUpdate).empty(), @"It is not expected to have dirty nodes on tree generation triggered by props update");
+  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTrigger::NewTree).empty(), @"It is not expected to have dirty nodes when new tree generation is triggered");
+  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTrigger::PropsUpdate).empty(), @"It is not expected to have dirty nodes on tree generation triggered by props update");
 
-  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTriggerNone).empty(), @"It is not expected to have dirty nodes when new tree generation is triggered");
-  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTriggerPropsUpdate).empty(), @"It is not expected to have dirty nodes on tree generation triggered by props update");
+  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTrigger::NewTree).empty(), @"It is not expected to have dirty nodes when new tree generation is triggered");
+  XCTAssertTrue(CKRender::treeNodeDirtyIdsFor(nil, {}, CKBuildTrigger::PropsUpdate).empty(), @"It is not expected to have dirty nodes on tree generation triggered by props update");
 }
 
 - (void)test_renderComponentHelpers_treeNodeDirtyIdsFor_onStateUpdate
@@ -181,28 +185,28 @@
 
   // Simulate a state update on the root.
   CKComponentStateUpdateMap stateUpdates;
-  stateUpdates[rootComponent.treeNode.scopeHandle].push_back(^(id){
+  stateUpdates[rootComponent.scopeHandle].push_back(^(id){
     return @2;
   });
 
-  CKTreeNodeDirtyIds dirtyNodeIds = CKRender::treeNodeDirtyIdsFor(buildResults.scopeRoot, stateUpdates, CKBuildTriggerStateUpdate);
-  CKTreeNodeDirtyIds expectedDirtyNodeIds = {rootComponent.treeNode.scopeHandle.treeNodeIdentifier};
+  CKTreeNodeDirtyIds dirtyNodeIds = CKRender::treeNodeDirtyIdsFor(buildResults.scopeRoot, stateUpdates, CKBuildTrigger::StateUpdate);
+  CKTreeNodeDirtyIds expectedDirtyNodeIds = {rootComponent.scopeHandle.treeNodeIdentifier};
   XCTAssertEqual(dirtyNodeIds, expectedDirtyNodeIds);
 }
 
 #pragma mark - Helpers
 
-static BOOL verifyChildToParentConnection(CKTreeNode *parentNode, CKTreeNode *childNode, CKComponent *c) {
+static BOOL verifyChildToParentConnection(id<CKTreeNodeWithChildrenProtocol> parentNode, CKTreeNode *childNode, CKComponent *c) {
   auto const componentKey = [childNode componentKey];
   auto const childComponent = [parentNode childForComponentKey:componentKey].component;
   return [childComponent isEqual:c];
 }
 
 /** Compare the components array to the components in the children nodes of 'parentNode' */
-static BOOL verifyComponentsInNode(CKTreeNode *parentNode, NSArray<CKComponent *> *components) {
+static BOOL verifyComponentsInNode(id<CKTreeNodeWithChildrenProtocol> parentNode, NSArray<CKComponent *> *components) {
   // Verify that the root holds two components has its direct children
   NSMutableSet<CKComponent *> *componentsFromTheTree = [NSMutableSet set];
-  for (auto node : parentNode.children) {
+  for (auto const node : parentNode.children) {
     [componentsFromTheTree addObject:(CKComponent *)node.component];
   }
   NSSet<id<CKMountable>> *componentsSet = [NSSet setWithArray:components];
@@ -210,7 +214,7 @@ static BOOL verifyComponentsInNode(CKTreeNode *parentNode, NSArray<CKComponent *
 }
 
 /** Compare the children of the trees recursively; returns true if the two trees are equal */
-static BOOL areTreesEqual(CKTreeNode *lhs, CKTreeNode *rhs) {
+static BOOL areTreesEqual(id<CKTreeNodeWithChildrenProtocol> lhs, id<CKTreeNodeWithChildrenProtocol> rhs) {
   NSMutableSet<NSString *> *lhsChildrenIdentifiers = [NSMutableSet set];
   treeChildrenIdentifiers(lhs, lhsChildrenIdentifiers, 0);
   NSMutableSet<NSString *> *rhsChildrenIdentifiers = [NSMutableSet set];
@@ -219,11 +223,13 @@ static BOOL areTreesEqual(CKTreeNode *lhs, CKTreeNode *rhs) {
 }
 
 /** Iterate recursively over the tree and add its node identifiers to the set */
-static void treeChildrenIdentifiers(CKTreeNode *node, NSMutableSet<NSString *> *identifiers, int level) {
-  for (auto childNode : node.children) {
+static void treeChildrenIdentifiers(id<CKTreeNodeWithChildrenProtocol> node, NSMutableSet<NSString *> *identifiers, int level) {
+  for (auto const childNode : node.children) {
     // We add the child identifier + its level in the tree.
     [identifiers addObject:[NSString stringWithFormat:@"%d-%d",childNode.nodeIdentifier, level]];
-    treeChildrenIdentifiers(childNode, identifiers, level+1);
+    if ([childNode isKindOfClass:[CKRenderTreeNode class]]) {
+      treeChildrenIdentifiers((CKRenderTreeNode *)childNode, identifiers, level+1);
+    }
   }
 }
 
@@ -237,7 +243,7 @@ static void treeChildrenIdentifiers(CKTreeNode *node, NSMutableSet<NSString *> *
 }
 + (instancetype)newWithComponent:(CKComponent *)component
 {
-  auto const c = [super new];
+  auto const c = [super newWithView:{} size:{}];
   if (c) {
     c->_component = component;
   }

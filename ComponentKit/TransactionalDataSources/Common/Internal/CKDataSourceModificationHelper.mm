@@ -14,44 +14,30 @@
 #import <ComponentKit/CKComponentContext.h>
 #import <ComponentKit/CKComponentController.h>
 #import <ComponentKit/CKComponentProvider.h>
-#import <ComponentKit/CKComponentLayout.h>
 #import <ComponentKit/CKDataSourceConfigurationInternal.h>
 #import <ComponentKit/CKDataSourceItemInternal.h>
-#import <ComponentKit/CKExceptionInfoScopedValue.h>
 #import <ComponentKit/CKMountable.h>
 
-CKDataSourceItem *CKBuildDataSourceItem(CK::NonNull<CKComponentScopeRoot *> previousRoot,
+CKDataSourceItem *CKBuildDataSourceItem(CKComponentScopeRoot *previousRoot,
                                         const CKComponentStateUpdateMap &stateUpdates,
                                         const CKSizeRange &sizeRange,
                                         CKDataSourceConfiguration *configuration,
                                         id model,
                                         id context,
-                                        std::shared_ptr<RCLayoutCache> layoutCache,
-                                        CKReflowTrigger reflowTrigger)
+                                        BOOL enableComponentReuseOptimizations)
 {
-  CKExceptionInfoScopedValue itemDescription(@"ck_data_source_item_description", [model description]);
-
   auto const componentProvider = [configuration componentProvider];
   const auto componentFactory = ^{
     return componentProvider(model, context);
   };
-
-  auto const treeNeedsReflow = reflowTrigger != CKBuildTriggerNone;
-  auto const buildTrigger = CKBuildComponentTrigger(previousRoot, stateUpdates, treeNeedsReflow, NO);
-  
   const CKBuildComponentResult result = CKBuildComponent(previousRoot,
                                                          stateUpdates,
                                                          componentFactory,
-                                                         buildTrigger,
-                                                         reflowTrigger);
-  
+                                                         enableComponentReuseOptimizations);
   const auto rootLayout = CKComputeRootComponentLayout(result.component,
-                                                         sizeRange,
-                                                         [result.scopeRoot analyticsListener],
-                                                         result.buildTrigger,
-                                                         result.scopeRoot,
-                                                         layoutCache);
-  
+                                                       sizeRange,
+                                                       result.scopeRoot.analyticsListener,
+                                                       result.buildTrigger);
   return [[CKDataSourceItem alloc] initWithRootLayout:rootLayout
                                                 model:model
                                             scopeRoot:result.scopeRoot

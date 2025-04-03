@@ -40,7 +40,7 @@ static NSString *const kTestModelForLifecycleComponent = @"kTestModelForLifecycl
 + (instancetype)newWithModel:(id)model
 {
   CKLifecycleTestComponent *lifecycleComponent = [model isEqual:kTestModelForLifecycleComponent]
-  ? [CKLifecycleTestComponent new]
+  ? [CKLifecycleTestComponent newWithView:{} size:{}]
   : nil;
   const auto c = [super newWithComponent:lifecycleComponent ?: CK::ComponentBuilder()
                                                                    .build()];
@@ -71,7 +71,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:[[CKDataSourceChangesetBuilder dataSourceChangeset] build]
                                                                        stateListener:nil
                                                                             userInfo:userInfo
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
   XCTAssertEqualObjects([[change appliedChanges] userInfo], userInfo);
 }
@@ -88,7 +89,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                                        stateListener:nil
                                                                             userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
   XCTAssertEqual([[change state] numberOfSections], (NSUInteger)1);
   XCTAssertEqual([[change state] numberOfObjectsInSection:0], (NSUInteger)2);
@@ -106,7 +108,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                                        stateListener:nil
                                                                             userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   // Initial state: [0, 1], [2, 3]
@@ -131,7 +134,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                                        stateListener:nil
                                                                             userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   auto c = (CKModelExposingComponent *)[[[change state] objectAtIndexPath:[NSIndexPath indexPathForItem:0 inSection:0]] rootLayout].component();
@@ -151,7 +155,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
     initWithChangeset:changeset
     stateListener:nil
     userInfo:nil
-    qos:CKDataSourceQOSDefault]
+    qos:CKDataSourceQOSDefault
+    shouldValidateChangeset:NO]
    changeFromState:originalState];
 
   const auto componentController =
@@ -166,7 +171,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
     initWithChangeset:changeset
     stateListener:nil
     userInfo:nil
-    qos:CKDataSourceQOSDefault]
+    qos:CKDataSourceQOSDefault
+    shouldValidateChangeset:NO]
    changeFromState:change.state];
 
   XCTAssertEqual(change.invalidComponentControllers.firstObject, componentController,
@@ -185,7 +191,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                  stateListener:nil
                                                       userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   // Initial state: [0, 1]
@@ -208,7 +215,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                  stateListener:nil
                                                       userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   // Initial state: [0, 1, 2]
@@ -237,7 +245,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                  stateListener:nil
                                                       userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   // Initial state: [0, 1], [2, 3]
@@ -265,7 +274,8 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject>)
   [[CKDataSourceChangesetModification alloc] initWithChangeset:changeset
                                                  stateListener:nil
                                                       userInfo:nil
-                                                           qos:CKDataSourceQOSDefault];
+                                                           qos:CKDataSourceQOSDefault
+                                       shouldValidateChangeset:NO];
   CKDataSourceChange *change = [changesetModification changeFromState:originalState];
 
   // Initial state: [0, 1, 2, 3], Final state: [3, 0]

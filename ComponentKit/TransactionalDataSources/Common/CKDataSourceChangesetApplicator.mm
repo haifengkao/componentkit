@@ -10,7 +10,7 @@
 
 #import "CKDataSourceChangesetApplicator.h"
 
-#import <atomic>
+#import <libkern/OSAtomic.h>
 #import <vector>
 
 #import <ComponentKit/CKDataSourceAppliedChanges.h>
@@ -23,12 +23,11 @@
 #import <ComponentKit/CKDataSourceQOSHelper.h>
 #import <ComponentKit/CKDataSourceState.h>
 #import <ComponentKit/CKDataSourceSplitChangesetModification.h>
-#import <ComponentKit/CKNonNull.h>
 #import <ComponentKit/CKSystraceScope.h>
-#import <ComponentKit/CKTraitCollectionHelper.h>
 
 static void *kQueueKey = &kQueueKey;
 static NSString *const kChangesetApplicatorIdUserInfoKey = @"CKDataSourceChangesetApplicator.Id";
+static int32_t globalChangesetApplicatorId = 0;
 
 struct CKDataSourceChangesetApplicatorPipelineItem {
   CKDataSourceChangeset *changeset;
@@ -48,8 +47,6 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
   dispatch_queue_t _queue;
   NSNumber *_changesetApplicatorId;
 
-  std::shared_ptr<CKTreeLayoutCache> _treeLayoutCache;
-
   std::vector<CKDataSourceChangesetApplicatorPipelineItem> _pipeline;
   NSUInteger _pipelineId;
 
@@ -57,27 +54,20 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
   CKDataSourceChangeset *_currentChangeset;
 
   CKDataSourceViewport _viewport;
-  UITraitCollection *_traitCollection;
 }
 
 - (instancetype)initWithDataSource:(CKDataSource *)dataSource
                              queue:(dispatch_queue_t)queue
 {
-  static std::atomic_int32_t globalChangesetApplicatorId;
-
   if (self = [super init]) {
     _dataSource = dataSource;
     _dataSourceState = dataSource.state;
     _queue = queue;
-    _changesetApplicatorId = @(++globalChangesetApplicatorId);
+    _changesetApplicatorId = @(OSAtomicIncrement32(&globalChangesetApplicatorId));
     [_dataSource addListener:self];
 
-    if (CKReadGlobalConfig().enableLayoutCaching) {
-      _treeLayoutCache = std::make_shared<CKTreeLayoutCache>();
-    }
-
-    RCAssertNotNil(_queue, @"A dispatch queue must be specified for changeset applicator.");
-    RCAssert(dispatch_queue_get_specific(_queue, kQueueKey) == NULL,
+    CKAssertNotNil(_queue, @"A dispatch queue must be specified for changeset applicator.");
+    CKAssert(dispatch_queue_get_specific(_queue, kQueueKey) == NULL,
              @"Sharing queue between changeset applicators is not allowed.");
     dispatch_queue_set_specific(_queue, kQueueKey, kQueueKey, NULL);
 
@@ -127,18 +117,16 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
 
   // `_currentChangeset` is used in `buildDataSourceItemForPreviousRoot` for querying item cache for inserted items.
   _currentChangeset = changeset;
-  __block CKDataSourceChange *change = nil;
+  CKDataSourceChange *change = nil;
   {
     id<CKDataSourceStateModifying> modification = nil;
-    auto treeLayoutCacheCopy = _treeLayoutCache ? std::make_unique<CKTreeLayoutCache>(*_treeLayoutCache) : nullptr;
     if (!shouldSplitChangeset) {
       const auto m =
       [[CKDataSourceChangesetModification alloc]
        initWithChangeset:changeset
        stateListener:_dataSource
-       userInfo:userInfo
-       qos:qos
-       treeLayoutCache:std::move(treeLayoutCacheCopy)];
+       userInfo:userInfo qos:qos
+       shouldValidateChangeset:NO];
       [m setItemGenerator:self];
       modification = m;
     } else {
@@ -148,14 +136,11 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
        stateListener:_dataSource
        userInfo:userInfo
        viewport:_viewport
-       qos:qos
-       treeLayoutCache:std::move(treeLayoutCacheCopy)];
+       qos:qos];
     }
-    CKPerformWithCurrentTraitCollection(_traitCollection, ^{
-      @autoreleasepool {
-        change = [modification changeFromState:_dataSourceState];
-      }
-    });
+    @autoreleasepool {
+      change = [modification changeFromState:_dataSourceState];
+    }
   }
   _currentChangeset = nil;
   _dataSourceState = change.state;
@@ -190,22 +175,6 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
     const auto isValid = [dataSource verifyChange:change];
     const auto newState = dataSource.state;
     auto const willApplyChange = CK::Analytics::willStartAsyncBlock(CK::Analytics::BlockName::ChangeSetApplicatorWillApplyChange);
-
-    if (CKReadGlobalConfig().enableLayoutCaching) {
-      for (NSIndexPath *insertedIndex in [change.appliedChanges insertedIndexPaths]) {
-        if ([newState numberOfSections] > insertedIndex.section && [newState numberOfObjectsInSection:insertedIndex.section] > insertedIndex.row) {
-          CKDataSourceItem *insertedItem = [newState objectAtIndexPath:insertedIndex];
-          self->_treeLayoutCache->update([[insertedItem scopeRoot] globalIdentifier], insertedItem.rootLayout.cache());
-        }
-      }
-      for (NSIndexPath *updatedIndex in [change.appliedChanges finalUpdatedIndexPaths]) {
-        if ([newState numberOfSections] > updatedIndex.section && [newState numberOfObjectsInSection:updatedIndex.section] > updatedIndex.row) {
-          CKDataSourceItem *updatedItem = [newState objectAtIndexPath:updatedIndex];
-          self->_treeLayoutCache->update([[updatedItem scopeRoot] globalIdentifier], updatedItem.rootLayout.cache());
-        }
-      }
-    }
-
     dispatch_async(self->_queue, blockUsingDataSourceQOS(^{
       CKSystraceScope willApplyChangeScope(willApplyChange);
       if (self->_pipelineId != pipelineId) {
@@ -225,7 +194,7 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
       }
     }, qos));
     __unused const auto isApplied = [dataSource applyChange:change];
-    RCCAssert(isApplied == isValid, @"`CKDataSourceChange` is verified but not able to be applied.");
+    CKCAssert(isApplied == isValid, @"`CKDataSourceChange` is verified but not able to be applied.");
   });
 
   if (shouldSplitChangeset && deferredChangeset) {
@@ -241,14 +210,7 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
 - (void)setViewPort:(CKDataSourceViewport)viewport
 {
   dispatch_async(_queue, ^{
-    self->_viewport = viewport;
-  });
-}
-
-- (void)setTraitCollection:(UITraitCollection *)traitCollection
-{
-  dispatch_async(_queue, ^{
-    self->_traitCollection = [traitCollection copy];
+    _viewport = viewport;
   });
 }
 
@@ -277,7 +239,7 @@ static NSDictionary *_mergeUserInfoWithChangesetApplicatorId(NSDictionary *userI
 
 - (void)createNewPipelineWithNewDataSourceState:(CKDataSourceState *)newState
 {
-  RCAssert(_isRunningOnQueue(), @"Pipeline must be created on process queue.");
+  CKAssert(_isRunningOnQueue(), @"Pipeline must be created on process queue.");
   if (![_dataSourceState.configuration isEqual:newState.configuration]) {
     // Discard item cache if configuraiton is updated because `sizeRange` or `context` could affect layout.
     _dataSourceItemCache = _createMapTable();
@@ -297,7 +259,7 @@ static NSDictionary *_mergeUserInfoWithChangesetApplicatorId(NSDictionary *userI
 
 #pragma mark - CKDataSourceChangesetModificationItemGenerator
 
-- (CKDataSourceItem *)buildDataSourceItemForPreviousRoot:(CK::NonNull<CKComponentScopeRoot *>)previousRoot
+- (CKDataSourceItem *)buildDataSourceItemForPreviousRoot:(CKComponentScopeRoot *)previousRoot
                                             stateUpdates:(const CKComponentStateUpdateMap &)stateUpdates
                                                sizeRange:(const CKSizeRange &)sizeRange
                                            configuration:(CKDataSourceConfiguration *)configuration
@@ -305,7 +267,7 @@ static NSDictionary *_mergeUserInfoWithChangesetApplicatorId(NSDictionary *userI
                                                  context:(id)context
                                                 itemType:(CKDataSourceChangesetModificationItemType)itemType
 {
-  RCAssert(_isRunningOnQueue(), @"`CKDataSourceItem` should be generated on process queue.");
+  CKAssert(_isRunningOnQueue(), @"`CKDataSourceItem` should be generated on process queue.");
   if (itemType != CKDataSourceChangesetModificationItemTypeInsert) {
     return CKBuildDataSourceItem(previousRoot, stateUpdates, sizeRange, configuration, model, context);
   }

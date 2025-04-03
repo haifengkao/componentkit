@@ -10,7 +10,7 @@
 
 #import "CKComponentContextHelper.h"
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKComponentScopeRoot.h>
 #import <ComponentKit/CKThreadLocalComponentScope.h>
 #import <ComponentKit/CKRootTreeNode.h>
@@ -35,6 +35,8 @@ struct CKComponentContextStackItem {
   std::stack<CKComponentContextStackItem> _stack;
   // Dirty flag for the current store in use.
   BOOL _itemWasAdded;
+  // A pointer to the existing scope root, which we set only if `enableFasterPropsUpdates` is enabled.
+  __weak CKComponentScopeRoot *_scopeRoot;
 }
 @end
 @implementation CKComponentContextValue @end
@@ -48,6 +50,14 @@ static CKComponentContextValue *contextValue(BOOL create)
     contextValue->_dictionary = [NSMutableDictionary dictionary];
     contextValue->_renderToDictionaryCache = [NSMapTable weakToStrongObjectsMapTable];
     threadDictionary[kThreadDictionaryKey] = contextValue;
+    // Props updates support.
+    CKThreadLocalComponentScope *currentScope = CKThreadLocalComponentScope::currentScope();
+    // Save the existing scope root.
+    if (currentScope != nullptr && currentScope->newScopeRoot) {
+      contextValue->_scopeRoot = currentScope->newScopeRoot;
+    } else {
+      contextValue->_scopeRoot = nil;
+    }
   }
   return contextValue;
 }
@@ -69,7 +79,7 @@ static void clearContextValueIfEmpty(CKComponentContextValue *const currentValue
   }
 }
 
-CKComponentContextPreviousState CKComponentContextHelper::store(id key, id object) noexcept
+CKComponentContextPreviousState CKComponentContextHelper::store(id key, id object)
 {
   CKComponentContextValue *v = contextValue(YES);
   NSMutableDictionary *const c = v->_dictionary;
@@ -80,20 +90,19 @@ CKComponentContextPreviousState CKComponentContextHelper::store(id key, id objec
   return state;
 }
 
-void CKComponentContextHelper::restore(const CKComponentContextPreviousState &storeResult) noexcept
+void CKComponentContextHelper::restore(const CKComponentContextPreviousState &storeResult)
 {
   // We want to create the context dictionary if it doesn't exist already, because we need to restore the original
   // value. In practice it should always exist already except for an obscure edge case; see the unit test
   // testTriplyNestedComponentContextWithNilMiddleValueCorrectlyRestoresOuterValue for an example.
   CKComponentContextValue *const v = contextValue(YES);
   NSMutableDictionary *const c = v->_dictionary;
-  id<NSCopying> storeResultKey = (id<NSCopying>)storeResult.key;
-  RCCAssert(c[storeResultKey] == storeResult.newValue, @"Context value for %@ unexpectedly mutated", storeResult.key);
-  c[storeResultKey] = storeResult.originalValue;
+  CKCAssert(c[storeResult.key] == storeResult.newValue, @"Context value for %@ unexpectedly mutated", storeResult.key);
+  c[storeResult.key] = storeResult.originalValue;
   clearContextValueIfEmpty(v);
 }
 
-void CKComponentContextHelper::didCreateRenderComponent(id component) noexcept
+void CKComponentContextHelper::didCreateRenderComponent(id component)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (!v) {
@@ -107,7 +116,7 @@ void CKComponentContextHelper::didCreateRenderComponent(id component) noexcept
   }
 }
 
-void CKComponentContextHelper::willBuildComponentTree(id component) noexcept
+void CKComponentContextHelper::willBuildComponentTree(id component)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (!v) {
@@ -127,7 +136,7 @@ void CKComponentContextHelper::willBuildComponentTree(id component) noexcept
   }
 }
 
-void CKComponentContextHelper::didBuildComponentTree(id component) noexcept
+void CKComponentContextHelper::didBuildComponentTree(id component)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (!v) {
@@ -136,8 +145,8 @@ void CKComponentContextHelper::didBuildComponentTree(id component) noexcept
 
   NSMutableDictionary *renderDictionary = [v->_renderToDictionaryCache objectForKey:component];
   if (renderDictionary) {
-    RCCAssert(!v->_stack.empty(), @"The stack cannot be empty if there is a render dictionary in the cache");
-    RCCAssert(v->_dictionary == renderDictionary, @"The current store is different than the renderDictionary");
+    CKCAssert(!v->_stack.empty(), @"The stack cannot be empty if there is a render dictionary in the cache");
+    CKCAssert(v->_dictionary == renderDictionary, @"The current store is different than the renderDictionary");
 
     // Update the pointer to the latest render dictionary
     if (!v->_stack.empty()) {
@@ -154,21 +163,20 @@ void CKComponentContextHelper::didBuildComponentTree(id component) noexcept
   }
 }
 
-id CKComponentContextHelper::fetchMutable(id key) noexcept
+id CKComponentContextHelper::fetchMutable(id key)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (v) {
-    // Props updates support.
-    CKThreadLocalComponentScope *currentScope = CKThreadLocalComponentScope::currentScope();
-    if (currentScope != nullptr) {
-      [currentScope->newScopeRoot rootNode].markTopRenderComponentAsDirtyForPropsUpdates();
+    auto const scopeRoot = v->_scopeRoot;
+    if (scopeRoot) {
+      scopeRoot.rootNode.markTopRenderComponentAsDirtyForPropsUpdates();
     }
     return v->_dictionary[key];
   }
   return nil;
 }
 
-id CKComponentContextHelper::fetch(id key) noexcept
+id CKComponentContextHelper::fetch(id key)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (v) {
@@ -177,7 +185,7 @@ id CKComponentContextHelper::fetch(id key) noexcept
   return nil;
 }
 
-CKComponentContextContents CKComponentContextHelper::fetchAll() noexcept
+CKComponentContextContents CKComponentContextHelper::fetchAll()
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (!v) {
@@ -189,7 +197,7 @@ CKComponentContextContents CKComponentContextHelper::fetchAll() noexcept
   };
 }
 
-NSMutableDictionary<Class, id>* CKComponentInitialValuesContext::setInitialValues(NSDictionary<Class, id> *objects) noexcept
+NSMutableDictionary<Class, id>* CKComponentInitialValuesContext::setInitialValues(NSDictionary<Class, id> *objects)
 {
   CKComponentContextValue *const v = contextValue(YES);
   // Save the old values.
@@ -203,7 +211,7 @@ NSMutableDictionary<Class, id>* CKComponentInitialValuesContext::setInitialValue
   return oldObjects;
 }
 
-void CKComponentInitialValuesContext::cleanInitialValues(NSMutableDictionary<Class, id> *oldObjects) noexcept
+void CKComponentInitialValuesContext::cleanInitialValues(NSMutableDictionary<Class, id> *oldObjects)
 {
   CKComponentContextValue *const v = contextValue(NO);
   if (!v) {

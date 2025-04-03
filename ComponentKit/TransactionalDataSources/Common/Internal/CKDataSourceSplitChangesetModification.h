@@ -10,9 +10,11 @@
 
 #import <Foundation/Foundation.h>
 
-#import <ComponentKit/CKComponentLayout.h>
+#import <ComponentKit/CKDefines.h>
 #import <ComponentKit/CKDataSource.h>
 #import <ComponentKit/CKDataSourceStateModifying.h>
+
+#if CK_NOT_SWIFT
 
 @class CKDataSourceChangeset;
 
@@ -26,13 +28,8 @@
                          viewport:(CKDataSourceViewport)viewport
                               qos:(CKDataSourceQOS)qos;
 
-- (instancetype)initWithChangeset:(CKDataSourceChangeset *)changeset
-                    stateListener:(id<CKComponentStateListener>)stateListener
-                         userInfo:(NSDictionary *)userInfo
-                         viewport:(CKDataSourceViewport)viewport
-                              qos:(CKDataSourceQOS)qos
-                  treeLayoutCache:(std::shared_ptr<CKTreeLayoutCache>)treeLayoutCache;
-
 @property (nonatomic, readonly, strong) CKDataSourceChangeset *changeset;
 
 @end
+
+#endif

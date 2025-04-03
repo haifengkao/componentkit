@@ -15,7 +15,6 @@
 #import <ComponentKit/CKComponent.h>
 #import <ComponentKit/CKComponentLayout.h>
 #import <ComponentKit/CKCompositeComponent.h>
-#import <ComponentKit/CKOverlayLayoutComponent.h>
 #import <ComponentKit/CKLinkable.h>
 
 #import "yoga/Yoga.h"
@@ -36,11 +35,11 @@ YGConfigRef _Nonnull ckYogaDefaultConfig();
 - (BOOL)isYogaBasedLayout;
 
 /**
- RCComponentSize of yoga node of the component. For CKComponent it is just it's size
+ CKComponentSize of yoga node of the component. For CKComponent it is just it's size
  that is passed in the constructor. For wrapper components, like CKCompositeComponent
  it's the node size of it's child component
  */
-- (RCComponentSize)nodeSize;
+- (CKComponentSize)nodeSize;
 
 /**
  A method that returns a new yoga node for a constained size.
@@ -54,7 +53,7 @@ YGConfigRef _Nonnull ckYogaDefaultConfig();
 
  By default returns an empty layout
  */
-- (RCLayout)layoutFromYgNode:(YGNodeRef _Nonnull)layoutNode thatFits:(CKSizeRange)constrainedSize;
+- (CKComponentLayout)layoutFromYgNode:(YGNodeRef _Nonnull)layoutNode thatFits:(CKSizeRange)constrainedSize;
 
 /**
  A flag that represents whether the component's layout sets a custom baseline value using the key
@@ -71,10 +70,6 @@ CK_LINK_REQUIRE_CATEGORY(CKComponent_Yoga)
 
 CK_LINK_REQUIRE_CATEGORY(CKCompositeComponent_Yoga)
 @interface CKCompositeComponent (Yoga)
-@end
-
-CK_LINK_REQUIRE_CATEGORY(CKOverlayLayoutComponent_Yoga)
-@interface CKOverlayLayoutComponent (Yoga)
 @end
 
 #endif

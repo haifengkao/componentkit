@@ -18,10 +18,9 @@
 #import <UIKit/UIKit.h>
 
 #import <RenderCore/ComponentViewReuseUtilities.h>
-#import <RenderCore/RCAccessibilityContext.h>
 #import <RenderCore/CKComponentViewAttribute.h>
 #import <RenderCore/CKComponentViewClass.h>
-#import <RenderCore/RCContainerWrapper.h>
+#import <RenderCore/CKContainerWrapper.h>
 
 typedef void (^CKComponentViewReuseBlock)(UIView *);
 
@@ -31,44 +30,105 @@ typedef void (^CKComponentViewReuseBlock)(UIView *);
 
  {[UIView class]}
  {[UIView class], {{@selector(setBackgroundColor:), [UIColor redColor]}, {@selector(setAlpha:), @0.5}}}
+
+ This is made as template because it doesn't depend on concrete implementation of `AccessibilityContext`.
  */
+template<typename AccessibilityContext>
 struct CKViewConfiguration {
 
-  CKViewConfiguration() noexcept;
-  CKViewConfiguration(CKComponentViewClass &&cls) noexcept;
-  CKViewConfiguration(const CKViewConfiguration&) noexcept;
+  CKViewConfiguration() noexcept :
+    rep(singletonViewConfiguration()) {}
+
+  CKViewConfiguration(CKComponentViewClass &&cls) noexcept :
+    CKViewConfiguration(std::move(cls), {}) {}
 
   // Prefer overloaded constructors to default arguments to prevent code bloat; with default arguments
   // the compiler must insert initialization of each default value inline at the callsite.
   CKViewConfiguration(CKComponentViewClass &&cls,
-                      RCContainerWrapper<CKViewComponentAttributeValueMap> &&attrs) noexcept;
+                      CKContainerWrapper<CKViewComponentAttributeValueMap> &&attrs) noexcept :
+    CKViewConfiguration(std::move(cls), std::move(attrs), {}) {}
 
   CKViewConfiguration(CKComponentViewClass &&cls,
-                      RCContainerWrapper<CKViewComponentAttributeValueMap> &&attrs,
-                      RCAccessibilityContext &&accessibilityCtx,
-                      bool blockImplicitAnimations = false) noexcept;
+                      CKContainerWrapper<CKViewComponentAttributeValueMap> &&attrs,
+                      AccessibilityContext &&accessibilityCtx,
+                      bool blockImplicitAnimations = false) noexcept
+  {
+    // Need to use attrs before we move it below.
+    CKViewComponentAttributeValueMap attrsMap = attrs.take();
+    CK::Component::PersistentAttributeShape attributeShape(attrsMap);
+    rep.reset(new Repr({
+      .viewClass = std::move(cls),
+      .attributes = std::make_shared<CKViewComponentAttributeValueMap>(std::move(attrsMap)),
+      .accessibilityContext = std::move(accessibilityCtx),
+      .attributeShape = std::move(attributeShape),
+      .blockImplicitAnimations = blockImplicitAnimations
+    }));
+  }
 
-  ~CKViewConfiguration();
+  // Constructors and destructors are defined out-of-line to prevent code bloat.
+  ~CKViewConfiguration() {}
+  bool operator==(const CKViewConfiguration &other) const noexcept
+  {
+    if (other.rep == rep) {
+      return true;
+    }
+    if (!(other.rep->attributeShape == rep->attributeShape
+          && other.rep->viewClass == rep->viewClass
+          && other.rep->accessibilityContext == rep->accessibilityContext
+          && other.rep->blockImplicitAnimations == rep->blockImplicitAnimations)) {
+      return false;
+    }
 
-  const CKComponentViewClass &viewClass() const noexcept;
+    const auto &otherAttributes = other.rep->attributes;
+    if (otherAttributes == rep->attributes) {
+      return true;
+    } else if (otherAttributes->size() == rep->attributes->size()) {
+      return std::find_if(rep->attributes->begin(),
+                          rep->attributes->end(),
+                          [&](std::pair<const CKComponentViewAttribute &, id> elem) {
+                            const auto otherElem = otherAttributes->find(elem.first);
+                            return otherElem == otherAttributes->end() || !CKObjectIsEqual(otherElem->second, elem.second);
+                          }) == rep->attributes->end();
+    } else {
+      return false;
+    }
+  }
 
-  std::shared_ptr<const CKViewComponentAttributeValueMap> attributes() const noexcept;
+  const CKComponentViewClass &viewClass() const noexcept
+  {
+    return rep->viewClass;
+  }
 
-  const RCAccessibilityContext &accessibilityContext() const noexcept;
+  std::shared_ptr<const CKViewComponentAttributeValueMap> attributes() const noexcept
+  {
+    return rep->attributes;
+  }
 
-  BOOL isDefaultConfiguration() const;
+  const AccessibilityContext &accessibilityContext() const noexcept
+  {
+    return rep->accessibilityContext;
+  }
 
-  bool blockImplicitAnimations() const noexcept;
+  BOOL isDefaultConfiguration() const
+  {
+    return rep == singletonViewConfiguration();
+  }
 
-  const CK::Component::PersistentAttributeShape &attributeShape() const noexcept;
+  bool blockImplicitAnimations() const noexcept
+  {
+    return rep->blockImplicitAnimations;
+  }
 
-  CKViewConfiguration forceViewClassIfNone(CKComponentViewClass &&cls) const noexcept;
+  const CK::Component::PersistentAttributeShape &attributeShape() const noexcept
+  {
+    return rep->attributeShape;
+  }
 
 private:
   struct Repr {
     CKComponentViewClass viewClass;
     std::shared_ptr<const CKViewComponentAttributeValueMap> attributes;
-    RCAccessibilityContext accessibilityContext;
+    AccessibilityContext accessibilityContext;
     CK::Component::PersistentAttributeShape attributeShape;
     bool blockImplicitAnimations;
   };
@@ -85,17 +145,16 @@ private:
 };
 
 namespace std {
-  template <>
-  struct hash<CKViewConfiguration>
+  template<typename AccessibilityContext> struct hash<CKViewConfiguration<AccessibilityContext>>
   {
-    size_t operator()(const CKViewConfiguration &cl) const noexcept
+    size_t operator()(const CKViewConfiguration<AccessibilityContext> &cl) const noexcept
     {
       NSUInteger subhashes[] = {
         std::hash<CKComponentViewClass>()(cl.viewClass()),
         std::hash<CKViewComponentAttributeValueMap>()(*cl.attributes()),
         std::hash<bool>()(cl.blockImplicitAnimations()),
       };
-      return RCIntegerArrayHash(subhashes, std::end(subhashes) - std::begin(subhashes));
+      return CKIntegerArrayHash(subhashes, std::end(subhashes) - std::begin(subhashes));
     }
   };
 }

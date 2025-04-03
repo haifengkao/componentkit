@@ -18,17 +18,14 @@
 #import <ComponentKit/CKComponentScopeRoot.h>
 #import <ComponentKit/CKDataSourceItem.h>
 #import <ComponentKit/CKDataSourceConfiguration.h>
-#import <ComponentKit/CKNonNull.h>
 #import <ComponentKit/CKSizeRange.h>
-#import <ComponentKit/CKBuildTrigger.h>
 
-CKDataSourceItem *CKBuildDataSourceItem(CK::NonNull<CKComponentScopeRoot *> previousRoot,
+CKDataSourceItem *CKBuildDataSourceItem(CKComponentScopeRoot *previousRoot,
                                         const CKComponentStateUpdateMap &stateUpdates,
                                         const CKSizeRange &sizeRange,
                                         CKDataSourceConfiguration *configuration,
                                         id model,
                                         id context,
-                                        std::shared_ptr<RCLayoutCache> treeLayoutCache = nullptr,
-                                        CKReflowTrigger reflowTrigger = CKReflowTriggerNone);
+                                        BOOL enableComponentReuseOptimizations = YES);
 
 #endif

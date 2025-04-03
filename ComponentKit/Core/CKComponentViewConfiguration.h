@@ -15,7 +15,6 @@
 #import <ComponentKit/CKComponentAccessibilityContext.h>
 #import <ComponentKit/CKViewConfiguration.h>
 
-/** Obsolete alias for CKViewConfiguration that should be removed. */
-using CKComponentViewConfiguration = CKViewConfiguration;
+using CKComponentViewConfiguration = CKViewConfiguration<CKComponentAccessibilityContext>;
 
 #endif

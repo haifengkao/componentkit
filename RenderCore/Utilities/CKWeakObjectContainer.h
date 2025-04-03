@@ -9,17 +9,20 @@
  */
 
 #import <Foundation/Foundation.h>
-#import <RenderCore/CKDefines.h>
 
 @interface CKWeakObjectContainer : NSObject
 @property (readonly, nonatomic, weak) id object;
 + (instancetype)newWithObject:(id)object;
 @end
 
-CK_EXTERN_C_BEGIN
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 extern void ck_objc_setNonatomicAssociatedWeakObject(id container, void *key, id value);
 extern void ck_objc_setAssociatedWeakObject(id container, void *key, id value);
 extern id ck_objc_getAssociatedWeakObject(id container, void *key);
 
-CK_EXTERN_C_END
+#ifdef __cplusplus
+}
+#endif

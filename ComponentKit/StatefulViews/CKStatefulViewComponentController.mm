@@ -16,7 +16,7 @@
 #import "CKStatefulViewComponent.h"
 #import "CKStatefulViewReusePool.h"
 
-#import "CKInternalHelpers.h"
+#import <objc/runtime.h>
 
 @implementation CKStatefulViewComponentController
 {
@@ -27,7 +27,7 @@
 
 + (UIView *)newStatefulView:(id)context
 {
-  RCFailAssertWithCategory(NSStringFromClass(self), @"Should be implemented by subclasses.");
+  NSAssert(false, @"Should be implemented by subclasses.");
   return nil;
 }
 
@@ -39,16 +39,12 @@
 + (void)configureStatefulView:(UIView *)statefulView
                  forComponent:(CKComponent *)component
 {
-  RCFailAssertWithCategory(NSStringFromClass(self), @"Should be implemented by subclasses.");
+  NSAssert(false, @"Should be implemented by subclasses.");
 }
 
 + (NSInteger)maximumPoolSize:(id)context
 {
   return -1;
-}
-
-+ (BOOL)isContextValid:(id)context {
-  return YES;
 }
 
 - (UIView *)statefulView
@@ -81,10 +77,10 @@
 {
   [super didMount];
 
-  RCAssertWithCategory([[self component] isKindOfClass:[CKStatefulViewComponent class]], self.component.className, @"Component should be a stateful view component.");
-  RCAssertWithCategory(
-    !CKSubclassOverridesInstanceMethod([CKStatefulViewComponentController class], [self class], @selector(statefulView)),
-    self.component.className,
+  NSAssert([[self component] isKindOfClass:[CKStatefulViewComponent class]], @"Component should be a stateful view component.");
+  NSAssert(
+    method_getImplementation(class_getInstanceMethod([CKStatefulViewComponentController class], @selector(statefulView))) ==
+    method_getImplementation(class_getInstanceMethod([self class], @selector(statefulView))),
     @"Should not override the method -statefulView.");
 
   if (_statefulView == nil) {
@@ -130,7 +126,7 @@
   const CKComponentViewContext &context = [[self component] viewContext];
   [_statefulView setFrame:context.frame];
 
-  RCAssertWithCategory([context.view.subviews count] <= 1, self.component.className, @"Should never have more than a single stateful subview.");
+  NSAssert([context.view.subviews count] <= 1, @"Should never have more than a single stateful subview.");
   UIView *existingView = [context.view.subviews lastObject];
   if (existingView != _statefulView) {
     [existingView removeFromSuperview];

@@ -13,10 +13,10 @@
 #import "CKComponentControllerEvents.h"
 #import "CKComponentEvents.h"
 
-CK::NonNull<CKComponentScopeRoot *> CKComponentScopeRootWithDefaultPredicates(id<CKComponentStateListener> stateListener,
-                                                                              id<CKAnalyticsListener> analyticsListener)
+CKComponentScopeRoot *CKComponentScopeRootWithDefaultPredicates(id<CKComponentStateListener> stateListener,
+                                                                id<CKAnalyticsListener> analyticsListener)
 {
-  return CK::makeNonNull([CKComponentScopeRoot
+  return [CKComponentScopeRoot
           rootWithListener:stateListener
           analyticsListener:analyticsListener
           componentPredicates:{
@@ -28,13 +28,13 @@ CK::NonNull<CKComponentScopeRoot *> CKComponentScopeRootWithDefaultPredicates(id
             &CKComponentControllerAppearanceEventPredicate,
             &CKComponentControllerDisappearanceEventPredicate,
             &CKComponentControllerInvalidateEventPredicate
-          }]);
+          }];
 }
 
-CK::NonNull<CKComponentScopeRoot *> CKComponentScopeRootWithPredicates(id<CKComponentStateListener> stateListener,
-                                                                       id<CKAnalyticsListener> analyticsListener,
-                                                                       const std::unordered_set<CKComponentPredicate> &componentPredicates,
-                                                                       const std::unordered_set<CKComponentControllerPredicate> &componentControllerPredicates)
+CKComponentScopeRoot *CKComponentScopeRootWithPredicates(id<CKComponentStateListener> stateListener,
+                                                         id<CKAnalyticsListener> analyticsListener,
+                                                         const std::unordered_set<CKComponentPredicate> &componentPredicates,
+                                                         const std::unordered_set<CKComponentControllerPredicate> &componentControllerPredicates)
 {
   std::unordered_set<CKComponentPredicate> componentPredicatesUnion = {
     &CKComponentBoundsAnimationPredicate,
@@ -51,9 +51,9 @@ CK::NonNull<CKComponentScopeRoot *> CKComponentScopeRootWithPredicates(id<CKComp
   componentPredicatesUnion.insert(componentPredicates.begin(), componentPredicates.end());
   componentControllerPredicatesUnion.insert(componentControllerPredicates.begin(), componentControllerPredicates.end());
 
-  return CK::makeNonNull([CKComponentScopeRoot
+  return [CKComponentScopeRoot
           rootWithListener:stateListener
           analyticsListener:analyticsListener
           componentPredicates:componentPredicatesUnion
-          componentControllerPredicates:componentControllerPredicatesUnion]);
+          componentControllerPredicates:componentControllerPredicatesUnion];
 }

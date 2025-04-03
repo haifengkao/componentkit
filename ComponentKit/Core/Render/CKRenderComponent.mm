@@ -12,17 +12,14 @@
 
 #import <ComponentKit/CKInternalHelpers.h>
 #import <ComponentKit/CKMutex.h>
-#import <RenderCore/RCComputeRootLayout.h>
 
 #import "CKComponentInternal.h"
 #import "CKComponentCreationValidation.h"
 #import "CKComponentSubclass.h"
-#import "CKComponent+LayoutLifecycle.h"
 #import "CKThreadLocalComponentScope.h"
 #import "CKIterableHelpers.h"
 #import "CKRenderHelpers.h"
 #import "CKTreeNode.h"
-#import "ComponentLayoutContext.h"
 
 @implementation CKRenderComponent
 {
@@ -33,11 +30,11 @@
 + (void)initialize
 {
   if (self != [CKRenderComponent class]) {
-    RCAssert(!CKSubclassOverridesInstanceMethod([CKRenderComponent class], self, @selector(computeLayoutThatFits:)),
+    CKAssert(!CKSubclassOverridesInstanceMethod([CKRenderComponent class], self, @selector(computeLayoutThatFits:)),
              @"%@ overrides -computeLayoutThatFits: which is not allowed. "
              "Consider subclassing CKLayoutComponent directly if you need to perform custom layout.",
              self);
-    RCAssert(!CKSubclassOverridesInstanceMethod([CKRenderComponent class], self, @selector(layoutThatFits:parentSize:)),
+    CKAssert(!CKSubclassOverridesInstanceMethod([CKRenderComponent class], self, @selector(layoutThatFits:parentSize:)),
              @"%@ overrides -layoutThatFits:parentSize: which is not allowed. "
              "Consider subclassing CKLayoutComponent directly if you need to perform custom layout.",
              self);
@@ -55,7 +52,7 @@
 
 - (CKComponent *)render:(id)state
 {
-  RCFailAssert(@"%@ MUST override the '%@' method.", self.className, NSStringFromSelector(_cmd));
+  CKFailAssert(@"%@ MUST override the '%@' method.", [self class], NSStringFromSelector(_cmd));
   return nil;
 }
 
@@ -65,8 +62,8 @@
   return [super viewForAnimation] ?: [_child viewForAnimation];
 }
 
-- (void)buildComponentTree:(CKTreeNode *)parent
-            previousParent:(CKTreeNode *_Nullable)previousParent
+- (void)buildComponentTree:(id<CKTreeNodeWithChildrenProtocol>)parent
+            previousParent:(id<CKTreeNodeWithChildrenProtocol> _Nullable)previousParent
                     params:(const CKBuildComponentTreeParams &)params
       parentHasStateUpdate:(BOOL)parentHasStateUpdate
 {
@@ -78,37 +75,19 @@
   }
 }
 
-- (RCLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
-                 restrictedToSize:(const RCComponentSize &)size
-             relativeToParentSize:(CGSize)parentSize
+- (CKComponentLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
+                          restrictedToSize:(const CKComponentSize &)size
+                      relativeToParentSize:(CGSize)parentSize
 {
-  RCAssert(size == RCComponentSize(),
+  CKAssert(size == CKComponentSize(),
            @"CKRenderComponent only passes size {} to the super class initializer, but received size %@ "
            "(component=%@)", size.description(), _child);
-  
+
   if (_child) {
-    RCLayout l;
-    if (CKReadGlobalConfig().enableLayoutCaching) {
-#if CK_ASSERTIONS_ENABLED
-      const CKComponentContext<CKComponentCreationValidationContext> validationContext([[CKComponentCreationValidationContext alloc] initWithSource:CKComponentCreationValidationSourceLayout]);
-#endif
-      CK::Component::LayoutContext context(self, constrainedSize);
-      auto const systraceListener = context.systraceListener;
-      CKComponentWillLayout(_child, constrainedSize, parentSize, systraceListener);
-      l = RCFetchOrComputeLayout(_child, constrainedSize, parentSize, &computeLayoutForModel);
-      CKComponentDidLayout(_child, l, constrainedSize, parentSize, systraceListener);
-    } else {
-      l = [_child layoutThatFits:constrainedSize parentSize:parentSize];
-    }
+    CKComponentLayout l = [_child layoutThatFits:constrainedSize parentSize:parentSize];
     return {self, l.size, {{{0,0}, l}}};
   }
   return [super computeLayoutThatFits:constrainedSize restrictedToSize:size relativeToParentSize:parentSize];
-}
-
-static RCLayout computeLayoutForModel(id<CKMountable> model, const CKSizeRange &constrainedSize, CGSize parentSize)
-{
-  const auto component = (CKComponent *)model;
-  return [component computeLayoutThatFits:constrainedSize restrictedToSize:component.size relativeToParentSize:parentSize];
 }
 
 - (CKComponent *)child
@@ -118,12 +97,18 @@ static RCLayout computeLayoutForModel(id<CKMountable> model, const CKSizeRange &
 
 - (unsigned int)numberOfChildren
 {
-  return RCIterable::numberOfChildren(_child);
+  return CKIterable::numberOfChildren(_child);
 }
 
 - (id<CKMountable>)childAtIndex:(unsigned int)index
 {
-  return RCIterable::childAtIndex(self, index, _child);
+  return CKIterable::childAtIndex(self, index, _child);
+}
+
+// TODO: Remove when new version is released.
++ (id)initialStateWithComponent:(id<CKRenderComponentProtocol>)component
+{
+  return [self initialState];
 }
 
 + (id)initialState
@@ -135,10 +120,10 @@ static RCLayout computeLayoutForModel(id<CKMountable> model, const CKSizeRange &
 
 - (id)initialState
 {
-  return [self.class initialState];
+  return [self.class initialStateWithComponent:self];
 }
 
-- (BOOL)shouldComponentUpdate:(id<CKReusableComponentProtocol>)component
+- (BOOL)shouldComponentUpdate:(id<CKRenderComponentProtocol>)component
 {
   return YES;
 }
@@ -155,40 +140,36 @@ static RCLayout computeLayoutForModel(id<CKMountable> model, const CKSizeRange &
   return nil;
 }
 
+// TODO: Remove when new version is released.
++ (BOOL)requiresScopeHandle
+{
+  return NO;
+}
+
 - (BOOL)requiresScopeHandle
 {
   if ([self.class controllerClass] != nil) {
     return YES;
   }
-  
+
   const Class componentClass = self.class;
-  
+
   static CK::StaticMutex mutex = CK_MUTEX_INITIALIZER; // protects cache
   CK::StaticMutexLocker l(mutex);
-  
+
   static std::unordered_map<Class, BOOL> *cache = new std::unordered_map<Class, BOOL>();
-  auto it = cache->find(componentClass);
+  const auto &it = cache->find(componentClass);
   if (it == cache->end()) {
     const BOOL requiresScopeHandle =
-    CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(buildController)) ||
-    CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsFromPreviousComponent:)) ||
-    CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsOnInitialMount)) ||
-    CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsOnFinalUnmount));
-    it = cache->insert({componentClass, requiresScopeHandle}).first;
+      [componentClass requiresScopeHandle] ||
+      CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(buildController)) ||
+      CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsFromPreviousComponent:)) ||
+      CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsOnInitialMount)) ||
+      CKSubclassOverridesInstanceMethod([CKRenderComponent class], componentClass, @selector(animationsOnFinalUnmount));
+    cache->insert({componentClass, requiresScopeHandle});
+    return requiresScopeHandle;
   }
-  const BOOL requiresScopeHandle = it->second;
-  RCAssert(requiresScopeHandle ||
-           (!self.hasAnimations && !self.hasInitialMountAnimations && !self.hasFinalUnmountAnimations),
-           @"%@ changes the default logic of -has*Animations properties; Make sure to override -requiresScopeHandle "
-           "and return YES when animations are present.",
-           self);
-  return requiresScopeHandle;
-}
-
-- (instancetype)clone
-{
-  // The default implementation returns `nil`, which indicates `clone` is not supported in this component.
-  return nil;
+  return it->second;
 }
 
 @end

@@ -22,6 +22,7 @@
 #import <ComponentKit/CKAnalyticsListener.h>
 #import <ComponentKit/CKComponentHostingViewInternal.h>
 #import <ComponentKit/CKOptional.h>
+#import <ComponentKit/ComponentRootViewPool.h>
 #import <ComponentKitTestHelpers/CKAnalyticsListenerSpy.h>
 
 #import "CKComponentHostingViewTestModel.h"
@@ -33,16 +34,10 @@ typedef struct {
   id<CKComponentSizeRangeProviding> sizeRangeProvider;
   CK::Optional<CGSize> initialSize;
   BOOL shouldUpdateModelAfterCreation = YES;
-  void(^willGenerateComponent)();
+  CK::Optional<CK::Component::RootViewPool> rootViewPool = CK::none;
 } CKComponentHostingViewConfiguration;
 
-
-static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<NSObject> context)
-{
-  return CKComponentWithHostingViewTestModel(model);
-}
-
-@interface CKComponentHostingViewTests : XCTestCase <CKComponentHostingViewDelegate>
+@interface CKComponentHostingViewTests : XCTestCase <CKComponentProvider, CKComponentHostingViewDelegate>
 + (CKComponentHostingView *)makeHostingView:(const CKComponentHostingViewConfiguration &)options;
 @end
 
@@ -55,9 +50,8 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 {
   auto const model = [[CKComponentHostingViewTestModel alloc]
                       initWithColor:[UIColor orangeColor]
-                      size:RCComponentSize::fromCGSize(CGSizeMake(50, 50))
-                      wrapperType:options.wrapperType
-                      willGenerateComponent:options.willGenerateComponent];
+                      size:CKComponentSize::fromCGSize(CGSizeMake(50, 50))
+                      wrapperType:options.wrapperType];
   auto const view = [self makeHostingView:options];
   if (options.shouldUpdateModelAfterCreation) {
     view.bounds = CGRectMake(0, 0, 100, 100);
@@ -69,7 +63,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 
 + (CKComponentHostingView *)makeHostingView:(const CKComponentHostingViewConfiguration &)options
 {
-  return [[CKComponentHostingView alloc] initWithComponentProviderFunc:CKComponentTestComponentProviderFunc
+  return [[CKComponentHostingView alloc] initWithComponentProvider:[CKComponentHostingViewTests class]
                                                  sizeRangeProvider:options.sizeRangeProvider ?: [CKComponentFlexibleSizeRangeProvider providerWithFlexibility:CKComponentSizeRangeFlexibleWidthAndHeight]
                                                componentPredicates:{}
                                      componentControllerPredicates:{}
@@ -77,6 +71,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
                                                            options:{
                                                              .allowTapPassthrough = options.allowTapPassthrough,
                                                              .initialSize = options.initialSize,
+                                                             .rootViewPool = options.rootViewPool,
                                                            }];
 }
 
@@ -91,6 +86,11 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   return CK::makeNonNull([NSString stringWithFormat:@"%@-%@",
                           NSStringFromClass([CKComponentHostingView class]),
                           [self componentProviderIdentifier]]);
+}
+
++ (CKComponent *)componentForModel:(CKComponentHostingViewTestModel *)model context:(id<NSObject>)context
+{
+  return CKComponentWithHostingViewTestModel(model);
 }
 
 - (void)setUp
@@ -126,7 +126,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 - (void)testImmediatelyUpdatesViewOnSynchronousModelChange
 {
   CKComponentHostingView *view = [[self class] hostingView:{}];
-  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor redColor] size:RCComponentSize::fromCGSize(CGSizeMake(50, 50))]
+  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor redColor] size:CKComponentSize::fromCGSize(CGSizeMake(50, 50))]
                mode:CKUpdateModeSynchronous];
   [view layoutIfNeeded];
 
@@ -137,7 +137,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 - (void)testEventuallyUpdatesViewOnAsynchronousModelChange
 {
   CKComponentHostingView *view = [[self class] hostingView:{}];
-  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor redColor] size:RCComponentSize::fromCGSize(CGSizeMake(50, 50))]
+  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor redColor] size:CKComponentSize::fromCGSize(CGSizeMake(50, 50))]
                mode:CKUpdateModeAsynchronous];
   [view layoutIfNeeded];
 
@@ -152,7 +152,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 {
   CKComponentHostingView *view = [[self class] hostingView:{}];
   view.delegate = self;
-  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor orangeColor] size:RCComponentSize::fromCGSize(CGSizeMake(75, 75))]
+  [view updateModel:[[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor orangeColor] size:CKComponentSize::fromCGSize(CGSizeMake(75, 75))]
                mode:CKUpdateModeSynchronous];
   XCTAssertTrue(_calledSizeDidInvalidate);
 }
@@ -177,7 +177,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
 
 - (void)testUpdateWithEmptyBoundsMountLayout
 {
-  CKComponentHostingViewTestModel *model = [[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor orangeColor] size:RCComponentSize::fromCGSize(CGSizeMake(50, 50))];
+  CKComponentHostingViewTestModel *model = [[CKComponentHostingViewTestModel alloc] initWithColor:[UIColor orangeColor] size:CKComponentSize::fromCGSize(CGSizeMake(50, 50))];
   auto const view = [CKComponentHostingViewTests makeHostingView:{}];
   [view updateModel:model mode:CKUpdateModeSynchronous];
   [view layoutIfNeeded];
@@ -275,7 +275,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   const auto constrainedSize = CGSizeMake(100, 100);
   [view sizeThatFits:constrainedSize];
   [view sizeThatFits:constrainedSize];
-  XCTAssertEqual(_analyticsListenerSpy.willLayoutComponentTreeHitCount, 2);
+  XCTAssertEqual(_analyticsListenerSpy->_willLayoutComponentTreeHitCount, 2);
 }
 
 - (void)testSizeCache_CachedSizeIsNotUsedIfConstrainedSizesAreDifferent
@@ -288,7 +288,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   const auto constrainedSize2 = CGSizeMake(200, 200);
   [view sizeThatFits:constrainedSize1];
   [view sizeThatFits:constrainedSize2];
-  XCTAssertEqual(_analyticsListenerSpy.willLayoutComponentTreeHitCount, 3);
+  XCTAssertEqual(_analyticsListenerSpy->_willLayoutComponentTreeHitCount, 3);
 }
 
 - (void)testSizeCache_CacheSizeIsNotUsedIfComponentIsUpdated
@@ -300,7 +300,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   [view sizeThatFits:constrainedSize];
   [view updateModel:nil mode:CKUpdateModeSynchronous];
   [view sizeThatFits:constrainedSize];
-  XCTAssertEqual(_analyticsListenerSpy.willLayoutComponentTreeHitCount, 3);
+  XCTAssertEqual(_analyticsListenerSpy->_willLayoutComponentTreeHitCount, 3);
 }
 
 - (void)testUpdateModel_ComponentIsReused
@@ -315,8 +315,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   [view updateModel:[[CKComponentHostingViewTestModel alloc]
                      initWithColor:nil
                      size:{}
-                     wrapperType:CKComponentHostingViewWrapperTypeRenderComponent
-                     willGenerateComponent:nil]
+                     wrapperType:CKComponentHostingViewWrapperTypeRenderComponent]
                mode:CKUpdateModeSynchronous];
   [view layoutIfNeeded];
   const auto c2 = (CKRenderLifecycleTestComponent *)view.mountedLayout.component;
@@ -352,7 +351,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
     .analyticsListener = _analyticsListenerSpy,
   }];
 
-  XCTAssertEqual(_analyticsListenerSpy.willCollectAnimationsHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_willCollectAnimationsHitCount, 1);
 }
 
 - (void)test_WhenMountsLayout_ReportsDidCollectAnimationsEvent
@@ -362,7 +361,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
     .analyticsListener = _analyticsListenerSpy,
   }];
 
-  XCTAssertEqual(_analyticsListenerSpy.didCollectAnimationsHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_didCollectAnimationsHitCount, 1);
 }
 
 - (void)test_LayoutAndGenerationOfComponentAreOnMainThreadWhenAsyncUpdateIsTriggeredWithoutInitialSize
@@ -373,8 +372,8 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   }];
   [hostingView updateModel:nil mode:CKUpdateModeAsynchronous];
   [hostingView layoutIfNeeded];
-  XCTAssertEqual(_analyticsListenerSpy.didLayoutComponentTreeHitCount, 1);
-  XCTAssertEqual(_analyticsListenerSpy.didMountComponentHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_didLayoutComponentTreeHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_didMountComponentHitCount, 1);
 }
 
 - (void)test_LayoutAndGenerationOfComponentAreNotOnMainThreadWhenAsyncUpdateIsTriggeredWithInitialSize
@@ -386,13 +385,13 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   }];
   [hostingView updateModel:nil mode:CKUpdateModeAsynchronous];
   [hostingView layoutIfNeeded];
-  XCTAssertEqual(_analyticsListenerSpy.didLayoutComponentTreeHitCount, 0);
-  XCTAssertEqual(_analyticsListenerSpy.didMountComponentHitCount, 0);
+  XCTAssertEqual(_analyticsListenerSpy->_didLayoutComponentTreeHitCount, 0);
+  XCTAssertEqual(_analyticsListenerSpy->_didMountComponentHitCount, 0);
 
   XCTAssertTrue(CKRunRunLoopUntilBlockIsTrue(^BOOL{
     [hostingView layoutIfNeeded];
-    return _analyticsListenerSpy.didLayoutComponentTreeHitCount == 1
-    && _analyticsListenerSpy.didMountComponentHitCount == 1;
+    return _analyticsListenerSpy->_didLayoutComponentTreeHitCount == 1
+    && _analyticsListenerSpy->_didMountComponentHitCount == 1;
   }));
 }
 
@@ -405,33 +404,99 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
   }];
   [hostingView updateModel:nil mode:CKUpdateModeSynchronous];
   [hostingView layoutIfNeeded];
-  XCTAssertEqual(_analyticsListenerSpy.didLayoutComponentTreeHitCount, 1);
-  XCTAssertEqual(_analyticsListenerSpy.didMountComponentHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_didLayoutComponentTreeHitCount, 1);
+  XCTAssertEqual(_analyticsListenerSpy->_didMountComponentHitCount, 1);
 }
 
-- (void)test_CurrentTraitCollectionIsCorrectInBackgroundQueueWhenTraitCollectionIsSet
+- (void)test_RootViewPool_RootViewIsPushedToRootViewPoolWhenHostingViewIsDeallocated
 {
-  if (@available(iOS 13.0, tvOS 13.0, *)) {
-    __block UITraitCollection *currentTraitCollection = nil;
-    const auto hostingView = [[self class] hostingView:{
-      .analyticsListener = _analyticsListenerSpy,
-      .shouldUpdateModelAfterCreation = YES,
-      .initialSize = CGSizeMake(100, 100),
-      .willGenerateComponent = ^{
-        currentTraitCollection = [UITraitCollection currentTraitCollection];
-      },
-    }];
+  auto rootViewPool = CK::Component::RootViewPool();
+  const auto rootViewCategory = [[self class] rootViewCategory];
+  XCTAssertNil(rootViewPool.popRootViewWithCategory(rootViewCategory));
 
-    XCTAssertEqual(currentTraitCollection.userInterfaceIdiom, hostingView.traitCollection.userInterfaceIdiom);
-    [hostingView updateContext:nil mode:CKUpdateModeAsynchronous];
-    CKRunRunLoopUntilBlockIsTrue(^BOOL{
-      return _analyticsListenerSpy.didBuildComponentTreeHitCount == 2;
-    });
-    XCTAssertEqual(currentTraitCollection.userInterfaceIdiom, hostingView.traitCollection.userInterfaceIdiom);
+  UIView *rootView = nil;
+  @autoreleasepool { // Make sure hosting view is deallocated at the end of scope
+    auto hostingView = [[self class] hostingView:{
+      .rootViewPool = rootViewPool,
+      .wrapperType = CKComponentHostingViewWrapperTypeDeepViewHierarchy,
+    }];
+    rootView = hostingView.containerView;
+    hostingView = nil;
   }
+  XCTAssertEqual(rootView, (UIView *)rootViewPool.popRootViewWithCategory(rootViewCategory));
+}
+
+- (void)test_RootViewPool_RootViewIsReusedFromRootViewPoolWhenCategoriesAreTheSame
+{
+  auto rootViewPool = CK::Component::RootViewPool();
+  const auto rootViewCategory = [[self class] rootViewCategory];
+
+  UIView *rootView = nil;
+  @autoreleasepool { // Make sure hosting view is deallocated at the end of scope
+    auto hostingView = [[self class] hostingView:{
+      .rootViewPool = rootViewPool,
+      .wrapperType = CKComponentHostingViewWrapperTypeDeepViewHierarchy,
+    }];
+    rootView = hostingView.containerView;
+    hostingView = nil;
+  }
+
+  auto hostingView = [[self class] hostingView:{
+    .rootViewPool = rootViewPool,
+    .wrapperType = CKComponentHostingViewWrapperTypeDeepViewHierarchy,
+  }];
+  XCTAssertEqual(rootView, hostingView.containerView);
+}
+
+- (void)test_MountPerformanceWithRootViewPoolEnabled
+{
+  [self measureBlock:^{
+    CK::Optional<NSInteger> viewAllocationsCount;
+    auto rootViewPool = CK::Component::RootViewPool();
+    for (int i = 0; i < 10; i++) {
+      @autoreleasepool {
+        const auto hostingView = [[self class] hostingView:{
+          .analyticsListener = _analyticsListenerSpy,
+          .rootViewPool = rootViewPool,
+          .wrapperType = CKComponentHostingViewWrapperTypeDeepViewHierarchy,
+        }];
+        [hostingView updateModel:nil mode:CKUpdateModeSynchronous];
+        [hostingView layoutIfNeeded];
+      }
+      viewAllocationsCount.match([&](const auto v) {
+        XCTAssertEqual(v, _analyticsListenerSpy->_viewAllocationsCount);
+      }, [&]() {
+        viewAllocationsCount = _analyticsListenerSpy->_viewAllocationsCount;
+      });
+    }
+  }];
+}
+
+- (void)test_MountPerformanceWithRootViewPoolDisabled
+{
+  [self measureBlock:^{
+    NSInteger viewAllocationsCount = 0;
+    for (int i = 0; i < 10; i++) {
+      @autoreleasepool {
+        const auto hostingView = [[self class] hostingView:{
+          .analyticsListener = _analyticsListenerSpy,
+          .wrapperType = CKComponentHostingViewWrapperTypeDeepViewHierarchy,
+        }];
+        [hostingView updateModel:nil mode:CKUpdateModeSynchronous];
+        [hostingView layoutIfNeeded];
+      }
+      XCTAssertGreaterThan(_analyticsListenerSpy->_viewAllocationsCount, viewAllocationsCount);
+      viewAllocationsCount = _analyticsListenerSpy->_viewAllocationsCount;
+    }
+  }];
 }
 
 @end
+
+static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<NSObject> context)
+{
+  return CKComponentWithHostingViewTestModel(model);
+}
 
 @interface CKComponentHostingViewTests_ComponentProviderFunction : CKComponentHostingViewTests
 @end
@@ -448,6 +513,7 @@ static CKComponent *CKComponentTestComponentProviderFunc(id<NSObject> model, id<
                                                                options:{
                                                                  .allowTapPassthrough = options.allowTapPassthrough,
                                                                  .initialSize = options.initialSize,
+                                                                 .rootViewPool = options.rootViewPool,
                                                                }];
 }
 

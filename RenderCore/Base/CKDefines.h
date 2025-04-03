@@ -10,21 +10,20 @@
 
 #import <RenderCore/CKMacros.h>
 
-#if defined(__cplusplus) && __cplusplus
-  #define CK_SWIFT 0
-#else
+#if __has_feature(modules)
   #define CK_SWIFT 1
+#else
+  #define CK_SWIFT 0
 #endif
 
 #define CK_NOT_SWIFT !CK_SWIFT
 
-#ifdef __cplusplus
-#define CK_EXTERN_C_BEGIN extern "C" {
-#define CK_EXTERN_C_END }
+#if CK_SWIFT
+  #define CK_SWIFT_DESIGNATED_INITIALIZER NS_DESIGNATED_INITIALIZER
+  #define CK_SWIFT_UNAVAILABLE NS_UNAVAILABLE
+  #define CK_OBJC_UNAVAILABLE
 #else
-#define CK_EXTERN_C_BEGIN
-#define CK_EXTERN_C_END
+  #define CK_SWIFT_DESIGNATED_INITIALIZER CK_NOT_DESIGNATED_INITIALIZER_ATTRIBUTE
+  #define CK_SWIFT_UNAVAILABLE
+  #define CK_OBJC_UNAVAILABLE NS_UNAVAILABLE
 #endif
-
-#define CK_INIT_UNAVAILABLE \
-  - (instancetype)init NS_UNAVAILABLE

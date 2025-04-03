@@ -11,7 +11,6 @@
 #import "CKDataSourceItem.h"
 #import "CKDataSourceItemInternal.h"
 
-#import <ComponentKit/CKDelayedNonNull.h>
 #import "CKComponent.h"
 #import "CKComponentLayout.h"
 
@@ -20,13 +19,13 @@
   BOOL _hasRootLayoutAndBoundsAnimation;
   CKComponentRootLayout _rootLayout;
   id _model;
-  CK::DelayedNonNull<CKComponentScopeRoot *> _scopeRoot;
+  CKComponentScopeRoot *_scopeRoot;
 }
 
 @synthesize boundsAnimation = _boundsAnimation;
 
 - (instancetype)initWithModel:(id)model
-                    scopeRoot:(CK::NonNull<CKComponentScopeRoot *>)scopeRoot
+                    scopeRoot:(CKComponentScopeRoot *)scopeRoot
 {
   if (self = [super init]) {
     _model = model;
@@ -38,7 +37,7 @@
 
 - (instancetype)initWithRootLayout:(const CKComponentRootLayout &)rootLayout
                              model:(id)model
-                         scopeRoot:(CK::NonNull<CKComponentScopeRoot *>)scopeRoot
+                         scopeRoot:(CKComponentScopeRoot *)scopeRoot
                    boundsAnimation:(CKComponentBoundsAnimation)boundsAnimation
 {
   if (self = [self initWithModel:model scopeRoot:scopeRoot]) {
@@ -51,19 +50,14 @@
 
 - (CKComponentBoundsAnimation)boundsAnimation
 {
-  RCAssert(_hasRootLayoutAndBoundsAnimation, @"When using the initializer without giving a layout you must override this method");
+  CKAssert(_hasRootLayoutAndBoundsAnimation, @"When using the initializer without giving a layout you must override this method");
   return _boundsAnimation;
 }
 
 - (const CKComponentRootLayout &)rootLayout
 {
-  RCAssert(_hasRootLayoutAndBoundsAnimation, @"When using the initializer without giving a layout you must override this method");
+  CKAssert(_hasRootLayoutAndBoundsAnimation, @"When using the initializer without giving a layout you must override this method");
   return _rootLayout;
-}
-
-- (CK::NonNull<CKComponentScopeRoot *>)scopeRoot
-{
-  return _scopeRoot;
 }
 
 - (NSString *)description
@@ -86,7 +80,7 @@
   } else if (_model) {
     modelCategory = NSStringFromClass([_model class]);
   }
-  return CK::makeNonNull([NSString stringWithFormat:@"%@-%@", modelCategory, component.className]);
+  return CK::makeNonNull([NSString stringWithFormat:@"%@-%@", modelCategory, NSStringFromClass(component.class)]);
 }
 
 @end

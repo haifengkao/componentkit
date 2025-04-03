@@ -27,7 +27,6 @@ CKDataSourceState *CKDataSourceTestState(CKComponentProviderFunc provider,
 /** Returns a data source with one item and one section. */
 CKDataSource *CKComponentTestDataSource(CKComponentProviderFunc provider,
                                         id<CKDataSourceListener> listener,
-                                        id<CKAnalyticsListener> analyticsListener = nil,
                                         CKDataSourceOptions options = {});
 
 NSSet *CKTestIndexPaths(NSUInteger numberOfSections, NSUInteger numberOfItemsPerSection);

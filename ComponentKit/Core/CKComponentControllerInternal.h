@@ -33,9 +33,8 @@
 
 /**
  This gives us the ability to avoid acquiring lock when `threadSafe_component` is not needed.
- The returned value shouldn't change over an instance's lifecycle.
  */
-@property (nonatomic, readonly, assign) BOOL shouldAcquireLockWhenUpdatingComponent;
++ (BOOL)shouldAcquireLockWhenUpdatingComponent;
 
 - (void)componentWillMount:(CKComponent *)component;
 - (void)componentDidMount:(CKComponent *)component;

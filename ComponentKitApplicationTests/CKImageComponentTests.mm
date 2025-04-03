@@ -10,7 +10,7 @@
 
 #import <ComponentSnapshotTestCase/CKComponentSnapshotTestCase.h>
 
-#import <ComponentKit/RCComponentSize.h>
+#import <ComponentKit/CKComponentSize.h>
 #import <ComponentKit/CKImageComponent.h>
 #import <ComponentKit/CKAutoSizedImageComponent.h>
 
@@ -47,10 +47,10 @@ static UIImage *TestImageWithColorAndSize(UIColor *color, CGSize size)
 
 - (void)testImageComponentWithImageSize
 {
-  const auto c =
-  CK::AutoSizedImageComponentBuilder()
-  .image(TestImageWithColorAndSize([UIColor redColor], CGSizeMake(200, 200)))
-  .build();
+  CKAutoSizedImageComponent *c =
+  [CKAutoSizedImageComponent
+   newWithImage:TestImageWithColorAndSize([UIColor redColor], CGSizeMake(200, 200))
+   attributes:{}];
 
   static CKSizeRange kSize = {{0, 0}, {400, 400}};
   CKSnapshotVerifyComponent(c, kSize, nil);

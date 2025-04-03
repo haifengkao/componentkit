@@ -10,15 +10,21 @@
 
 #import <Foundation/Foundation.h>
 
-#import <RenderCore/CKDefines.h>
+#import <ComponentKit/CKDefines.h>
+
+#if CK_NOT_SWIFT
 
 /**
- Set a key value pair using this in RCLayout.extra for a custom baseline. The component which uses this property should also override @{usesCustomBaseline} to return YES.
+ Set a key value pair using this in CKComponentLayout.extra for a custom baseline. The component which uses this property should also override @{usesCustomBaseline} to return YES.
  e.g. @{kCKComponentLayoutExtraBaselineKey : 20}
  */
 
-CK_EXTERN_C_BEGIN
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 extern NSString *const kCKComponentLayoutExtraBaselineKey;
+#ifdef __cplusplus
+}
+#endif
 
-CK_EXTERN_C_END
+#endif

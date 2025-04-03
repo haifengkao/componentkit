@@ -10,7 +10,7 @@
 
 #import "CKComponentKey.h"
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 
 CKComponentKey::CKComponentKey(id<NSObject> key) noexcept
 : _threadLocalScope(CKThreadLocalComponentScope::currentScope()), _key(key)
@@ -23,7 +23,7 @@ CKComponentKey::CKComponentKey(id<NSObject> key) noexcept
 CKComponentKey::~CKComponentKey() noexcept
 {
   if (_threadLocalScope && _key) {
-    RCCAssert(_threadLocalScope->keys.top().back() == _key, @"Key mismatch: %@ vs %@",
+    CKCAssert(_threadLocalScope->keys.top().back() == _key, @"Key mismatch: %@ vs %@",
               _threadLocalScope->keys.top().back(), _key);
     _threadLocalScope->keys.top().pop_back();
   }

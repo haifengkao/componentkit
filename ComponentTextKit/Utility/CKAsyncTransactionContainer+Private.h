@@ -12,7 +12,7 @@
 
 #if CK_NOT_SWIFT
 
-#import <ComponentTextKit/CKAsyncTransactionContainer.h>
+#import <ComponentKit/CKAsyncTransactionContainer.h>
 
 @interface CALayer (CKAsyncTransactionContainerTransactions)
 @property (nonatomic, retain, setter = ck_setAsyncLayerTransactions:) NSHashTable *ck_asyncLayerTransactions;

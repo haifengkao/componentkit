@@ -13,8 +13,6 @@
 #if CK_NOT_SWIFT
 
 #import <Foundation/Foundation.h>
-#import <RenderCore/RCComponentCoalescingMode.h>
-#import <RenderCore/RCComponentBasedAccessibilityMode.h>
 
 @protocol CKAnalyticsListener;
 
@@ -23,56 +21,34 @@ struct CKGlobalConfig {
   id<CKAnalyticsListener> defaultAnalyticsListener = nil;
   /** If enabled, CKBuildComponent will always build the component tree (CKTreeNode), even if there is no Render component in the tree*/
   BOOL alwaysBuildRenderTree = NO;
+  /** Same as above, but only in DEBUG configuration */
+  BOOL alwaysBuildRenderTreeInDebug = YES;
   /**
-   Uses the overlayout layout component child size to assign size
-   properties on yoga node instead of the size of overlayout component itself
+   `componentController.component` will be updated right after commponent build if this is enabled.
+   This is only for running expeirment in ComponentKit. Please DO NOT USE.
    */
-  BOOL useNodeSizeOverlayComponent = NO;
+  BOOL updateComponentInControllerAfterBuild = NO;
   /**
-   Instead of setting resolving the percentage size manually from parent size
-   set the percent on the yoga node itself instead
+   `CK::Component::GlobalRootViewPool` will be used in `CKComponentHostingView` when this is enabled.
    */
-  BOOL setPercentOnChildNode = NO;
+  BOOL enableGlobalRootViewPoolInHostingView = NO;
   /**
-   Use new method of performing optimistic mutations which can last beyond next mount
+   This enables acquiring lock when updating component in component controller.
    */
-  BOOL useNewStyleOptimisticMutations = NO;
+  BOOL shouldAcquireLockWhenUpdatingComponentInController = NO;
   /**
-   Component coalescing mode.
+   Enables using CK scoped associated object in main thread affined scenario.
    */
-  RCComponentCoalescingMode coalescingMode = RCComponentCoalescingModeRender;
+  BOOL useCKAssociatedObject = YES;
   /**
-   Component based accessibility mode
+   Uses the composite component child size to assign size
+   properties on yoga node instead of the size of composite component itself
    */
-  RCComponentBasedAccessibilityMode componentAXMode = RCComponentBasedAccessibilityModeDisabled;
+  BOOL skipCompositeComponentSize = YES;
   /**
-   Kill-switch to disable render-to-nil in coalesced composite components.
+   Avoid duplicate links in the tree nodes for owner/parent based nodes
    */
-  BOOL disableRenderToNilInCoalescedCompositeComponents = NO;
-  /**
-   Enables workaround for https://bugs.llvm.org/show_bug.cgi?id=48207
-   */
-  BOOL clangCStructLeakWorkaroundEnabled = NO;
-  /**
-   Force mounting views for component with accessibilityContext set even when VoiceOver is not enabled
-   */
-  BOOL alwaysMountViewForAccessibityContextComponent = NO;
-  /**
-   Enables caching of the layout for reused components.
-   */
-  BOOL enableLayoutCaching = NO;
-  /**
-   In Specs we provide a custom identifier, which is a function pointer to the
-   handler function. This bool enables using this identifier in == operator
-   instead of comparing blocks.
-   */
-  BOOL actionShouldCompareCustomIdentifier = NO;
-
-  /**
-   Flag to use the custom identifer provided by the spec instead of block pointer
-   when generating an identifier string for an action
-   */
-  BOOL actionShouldUseCustomIdentifierInIdentifierString = NO;
+  BOOL mergeTreeNodesLinks = NO;
 };
 
 CKGlobalConfig CKReadGlobalConfig();

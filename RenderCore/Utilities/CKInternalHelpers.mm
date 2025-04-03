@@ -63,20 +63,15 @@ CGFloat CKScreenScale() noexcept
 
 CGFloat CKFloorPixelValue(CGFloat f) noexcept
 {
-  return floor(f * CKScreenScale()) / CKScreenScale();
+  return floorf(f * CKScreenScale()) / CKScreenScale();
 }
 
 CGFloat CKCeilPixelValue(CGFloat f) noexcept
 {
-  return ceil(f * CKScreenScale()) / CKScreenScale();
+  return ceilf(f * CKScreenScale()) / CKScreenScale();
 }
 
 CGFloat CKRoundPixelValue(CGFloat f) noexcept
 {
-  return round(f * CKScreenScale()) / CKScreenScale();
-}
-
-auto CKReturnIfResponds(id const obj, SEL const sel) -> id
-{
-  return [obj respondsToSelector:sel] ? obj : nil;
+  return roundf(f * CKScreenScale()) / CKScreenScale();
 }

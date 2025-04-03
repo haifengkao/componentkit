@@ -58,10 +58,10 @@
 
 - (void)testThreadLocalStateIsSet
 {
-  auto const root = CKComponentScopeRootWithDefaultPredicates(nil, nil);
+  CKComponentScopeRoot *root = CKComponentScopeRootWithDefaultPredicates(nil, nil);
 
   CKComponent *(^block)(void) = ^CKComponent *{
-    XCTAssertEqualObjects(CKThreadLocalComponentScope::currentScope()->stack.top().previousNode, [root rootNode].node());
+    XCTAssertEqualObjects(CKThreadLocalComponentScope::currentScope()->stack.top().previousFrame, root.rootNode.node());
     return [CKComponent new];
   };
 
@@ -103,6 +103,8 @@
 
   XCTAssertEqualObjects(state, nextState);
 }
+
+#pragma mark - CKComponentScopeFrameForComponent
 
 - (void)testComponentStateIsSetToInitialStateValue
 {

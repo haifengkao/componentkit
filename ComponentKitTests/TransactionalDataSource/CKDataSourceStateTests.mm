@@ -13,7 +13,6 @@
 #import <ComponentKit/CKComponent.h>
 #import <ComponentKit/CKComponentLayout.h>
 #import <ComponentKit/CKComponentProvider.h>
-#import <ComponentKit/CKComponentScopeRootFactory.h>
 #import <ComponentKit/CKDataSourceConfiguration.h>
 #import <ComponentKit/CKDataSourceItemInternal.h>
 #import <ComponentKit/CKDataSourceStateInternal.h>
@@ -93,7 +92,7 @@ static CKComponent *ComponentProvider(id<NSObject> _, id<NSObject> __)
 {
   CKDataSourceItem *firstItem = [[CKDataSourceItem alloc] initWithRootLayout:{}
                                                                        model:@"model"
-                                                                   scopeRoot:CKComponentScopeRootWithDefaultPredicates(nil, nil)
+                                                                   scopeRoot:nil
                                                              boundsAnimation:{}];
   CKDataSourceConfiguration *firstConfiguration =
       [[CKDataSourceConfiguration alloc] initWithComponentProviderFunc:ComponentProvider
@@ -104,7 +103,7 @@ static CKComponent *ComponentProvider(id<NSObject> _, id<NSObject> __)
 
   CKDataSourceItem *secondItem = [[CKDataSourceItem alloc] initWithRootLayout:{}
                                                                         model:@"model"
-                                                                    scopeRoot:CKComponentScopeRootWithDefaultPredicates(nil, nil)
+                                                                    scopeRoot:nil
                                                               boundsAnimation:{}];
   CKDataSourceConfiguration *secondConfiguration =
       [[CKDataSourceConfiguration alloc] initWithComponentProviderFunc:ComponentProvider
@@ -119,7 +118,7 @@ static CKComponent *ComponentProvider(id<NSObject> _, id<NSObject> __)
 - (void)testNonEqualStates {
   CKDataSourceItem *firstItem = [[CKDataSourceItem alloc] initWithRootLayout:{}
                                                                        model:@"model"
-                                                                   scopeRoot:CKComponentScopeRootWithDefaultPredicates(nil, nil)
+                                                                   scopeRoot:nil
                                                              boundsAnimation:{}];
   CKDataSourceConfiguration *firstConfiguration =
       [[CKDataSourceConfiguration alloc] initWithComponentProviderFunc:ComponentProvider
@@ -130,7 +129,7 @@ static CKComponent *ComponentProvider(id<NSObject> _, id<NSObject> __)
 
   CKDataSourceItem *secondItem = [[CKDataSourceItem alloc] initWithRootLayout:{}
                                                                         model:@"model2"
-                                                                    scopeRoot:CKComponentScopeRootWithDefaultPredicates(nil, nil)
+                                                                    scopeRoot:nil
                                                               boundsAnimation:{}];
   CKDataSourceConfiguration *secondConfiguration =
       [[CKDataSourceConfiguration alloc] initWithComponentProviderFunc:ComponentProvider
@@ -186,7 +185,7 @@ static auto stateWithModels(const std::vector<id> &models) -> CKDataSourceState 
 {
   auto const items = [NSMutableArray<CKDataSourceItem *> new];
   for (id model : models) {
-    [items addObject:[[CKDataSourceItem alloc] initWithModel:model scopeRoot:CKComponentScopeRootWithDefaultPredicates(nil, nil)]];
+    [items addObject:[[CKDataSourceItem alloc] initWithModel:model scopeRoot:nil]];
   }
   return
   [[CKDataSourceState alloc]

@@ -10,10 +10,10 @@
 
 #import "CKComponentAccessibility.h"
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 
 /** Helper that converts the accessibility context characteristics to a map of component view attributes */
-static CKViewComponentAttributeValueMap ViewAttributesFromAccessibilityContext(const RCAccessibilityContext &accessibilityContext)
+static CKViewComponentAttributeValueMap ViewAttributesFromAccessibilityContext(const CKComponentAccessibilityContext &accessibilityContext)
 {
   CKViewComponentAttributeValueMap accessibilityAttributes;
   if (accessibilityContext.isAccessibilityElement) {
@@ -36,9 +36,9 @@ static CKViewComponentAttributeValueMap ViewAttributesFromAccessibilityContext(c
 
 CKComponentViewConfiguration CK::Component::Accessibility::AccessibleViewConfiguration(const CKComponentViewConfiguration &viewConfiguration)
 {
-  RCCAssertMainThread();
+  CKCAssertMainThread();
   // Copy is intentional so we can move later.
-  RCAccessibilityContext accessibilityContext = viewConfiguration.accessibilityContext();
+  CKComponentAccessibilityContext accessibilityContext = viewConfiguration.accessibilityContext();
   const CKViewComponentAttributeValueMap &accessibilityAttributes = ViewAttributesFromAccessibilityContext(accessibilityContext);
   if (accessibilityAttributes.size() > 0) {
     CKViewComponentAttributeValueMap newAttributes(*viewConfiguration.attributes());
@@ -71,22 +71,6 @@ void CK::Component::Accessibility::ResetForceAccessibility()
 
 BOOL CK::Component::Accessibility::IsAccessibilityEnabled()
 {
-  RCCAssertMainThread();
+  CKCAssertMainThread();
   return !_forceAccessibilityDisabled && (_forceAccessibilityEnabled || UIAccessibilityIsVoiceOverRunning());
-}
-
-NSString *const CKAccessibilityExtraActionKey = @"CKAccessibilityExtraActionKey";
-
-id CKAccessibilityExtraActionValue(CKAction<> action)
-{
-  // Mostly this function exists to ensure the correct type is passed
-  // (CKAction<> not CKAction<Foo>) and that the action is captured
-  // by value, not by reference.
-  return ^{ return action; };
-}
-
-CKAction<> CKAccessibilityActionFromExtraValue(id extraValue)
-{
-  CKAction<> (^block)(void) = extraValue;
-  return block ? block() : CKAction<>();
 }

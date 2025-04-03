@@ -10,29 +10,27 @@
 
 #import <ComponentKit/CKDefines.h>
 
+#if CK_NOT_SWIFT
+
 #import <ComponentKit/CKLayoutComponent.h>
 
 #import <ComponentKit/CKMacros.h>
-
-NS_ASSUME_NONNULL_BEGIN
 
 /**
  @uidocs https://fburl.com/CKOverlayLayoutComponent:4ad6
 
  This component lays out a single component and then overlays a component on top of it streched to its size
  */
-NS_SWIFT_NAME(OverlayLayoutComponent)
 @interface CKOverlayLayoutComponent : CKLayoutComponent
 
-CK_INIT_UNAVAILABLE;
++ (instancetype)newWithComponent:(CKComponent *)component
+                         overlay:(CKComponent *)overlay;
 
-CK_LAYOUT_COMPONENT_INIT_UNAVAILABLE;
-
-- (instancetype)initWithComponent:(CKComponent *)component
-                          overlay:(CKComponent *_Nullable)overlay NS_DESIGNATED_INITIALIZER;
++ (instancetype)newWithView:(const CKComponentViewConfiguration &)view
+                       size:(const CKComponentSize &)size CK_NOT_DESIGNATED_INITIALIZER_ATTRIBUTE;
 
 @end
 
-NS_ASSUME_NONNULL_END
-
 #import <ComponentKit/OverlayLayoutComponentBuilder.h>
+
+#endif

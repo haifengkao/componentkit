@@ -10,13 +10,14 @@
 
 #import "CKComponentScopeRoot.h"
 
-#include <atomic>
+#import <libkern/OSAtomic.h>
 
 #import <ComponentKit/CKInternalHelpers.h>
 #import <ComponentKit/CKRootTreeNode.h>
 
 #import "CKComponentProtocol.h"
 #import "CKComponentControllerProtocol.h"
+#import "CKComponentScopeFrame.h"
 #import "CKThreadLocalComponentScope.h"
 
 typedef std::unordered_map<CKComponentPredicate, NSHashTable<id<CKComponentProtocol>> *> _CKRegisteredComponentsMap;
@@ -38,11 +39,10 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
              componentPredicates:(const std::unordered_set<CKComponentPredicate> &)componentPredicates
    componentControllerPredicates:(const std::unordered_set<CKComponentControllerPredicate> &)componentControllerPredicates
 {
-  static std::atomic_int32_t nextGlobalIdentifier;
+  static int32_t nextGlobalIdentifier = 0;
   return [[CKComponentScopeRoot alloc] initWithListener:listener
                                       analyticsListener:analyticsListener
-                                       globalIdentifier:++nextGlobalIdentifier
-                                                isEmpty:YES
+                                       globalIdentifier:OSAtomicIncrement32(&nextGlobalIdentifier)
                                     componentPredicates:componentPredicates
                           componentControllerPredicates:componentControllerPredicates];
 }
@@ -52,7 +52,6 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
   return [[CKComponentScopeRoot alloc] initWithListener:_listener
                                       analyticsListener:_analyticsListener
                                        globalIdentifier:_globalIdentifier
-                                               isEmpty:NO
                                     componentPredicates:_componentPredicates
                           componentControllerPredicates:_componentControllerPredicates];
 }
@@ -60,7 +59,6 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
 - (instancetype)initWithListener:(id<CKComponentStateListener>)listener
                analyticsListener:(id<CKAnalyticsListener>)analyticsListener
                 globalIdentifier:(CKComponentScopeRootIdentifier)globalIdentifier
-                         isEmpty:(BOOL)isEmpty
              componentPredicates:(const std::unordered_set<CKComponentPredicate> &)componentPredicates
    componentControllerPredicates:(const std::unordered_set<CKComponentControllerPredicate> &)componentControllerPredicates
 {
@@ -71,7 +69,9 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
     _globalIdentifier = globalIdentifier;
     _componentPredicates = componentPredicates;
     _componentControllerPredicates = componentControllerPredicates;
-    _isEmpty = isEmpty;
+#if DEBUG
+    _hasRenderComponentInTree = globalConfig.alwaysBuildRenderTreeInDebug;
+#endif
   }
   return self;
 }
@@ -89,7 +89,6 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
         hashTable = [NSHashTable weakObjectsHashTable];
         _registeredComponents[predicate] = hashTable;
       }
-      RCWarn([hashTable containsObject:component] == NO, @"Double registration of component %@", component.className);
       [hashTable addObject:component];
     }
   }
@@ -108,8 +107,6 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
         hashTable = [NSHashTable weakObjectsHashTable];
         _registeredComponentControllers[predicate] = hashTable;
       }
-
-      RCWarn([hashTable containsObject:componentController] == NO, @"Double registration of component controller %@", componentController.class);
       [hashTable addObject:componentController];
     }
   }
@@ -119,10 +116,10 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
                                        block:(CKComponentScopeEnumerator)block
 {
   if (!block) {
-    RCFailAssert(@"Must be given a block to enumerate.");
+    CKFailAssert(@"Must be given a block to enumerate.");
     return;
   }
-  RCAssert(_componentPredicates.find(predicate) != _componentPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
+  CKAssert(_componentPredicates.find(predicate) != _componentPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
 
   const auto foundIter = _registeredComponents.find(predicate);
   if (foundIter != _registeredComponents.end()) {
@@ -134,7 +131,7 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
 
 - (CKCocoaCollectionAdapter<id<CKComponentProtocol>>)componentsMatchingPredicate:(CKComponentPredicate)predicate
 {
-  RCCAssert(CK::Collection::contains(_componentPredicates, predicate), @"Scope root must be initialized with predicate to enumerate.");
+  CKCAssert(CK::Collection::contains(_componentPredicates, predicate), @"Scope root must be initialized with predicate to enumerate.");
   const auto componentsIt = _registeredComponents.find(predicate);
   const auto components = componentsIt != _registeredComponents.end() ? componentsIt->second : @[];
   return CKCocoaCollectionAdapter<id<CKComponentProtocol>>(components);
@@ -144,10 +141,10 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
                                                  block:(CKComponentControllerScopeEnumerator)block
 {
   if (!block) {
-    RCFailAssert(@"Must be given a block to enumerate.");
+    CKFailAssert(@"Must be given a block to enumerate.");
     return;
   }
-  RCAssert(_componentControllerPredicates.find(predicate) != _componentControllerPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
+  CKAssert(_componentControllerPredicates.find(predicate) != _componentControllerPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
 
   const auto foundIter = _registeredComponentControllers.find(predicate);
   if (foundIter != _registeredComponentControllers.end()) {
@@ -159,7 +156,7 @@ typedef std::unordered_map<CKComponentControllerPredicate, NSHashTable<id<CKComp
 
 - (CKCocoaCollectionAdapter<id<CKComponentControllerProtocol>>)componentControllersMatchingPredicate:(CKComponentControllerPredicate)predicate
 {
-  RCAssert(_componentControllerPredicates.find(predicate) != _componentControllerPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
+  CKAssert(_componentControllerPredicates.find(predicate) != _componentControllerPredicates.end(), @"Scope root must be initialized with predicate to enumerate.");
   const auto componentControllersIt = _registeredComponentControllers.find(predicate);
   const auto componentControllers = componentControllersIt != _registeredComponentControllers.end() ? componentControllersIt->second : @[];
   return CKCocoaCollectionAdapter<id<CKComponentControllerProtocol>>(componentControllers);

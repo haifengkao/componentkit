@@ -12,30 +12,30 @@
 
 #import <functional>
 
-#import <RenderCore/RCDimension.h>
-#import <RenderCore/RCEqualityHelpers.h>
+#import <RenderCore/CKDimension.h>
+#import <RenderCore/CKEqualityHelpers.h>
 #import <RenderCore/CKMacros.h>
 
-#define RCCAssertPositiveReal(description, num) \
-  RCCAssert(num >= 0 && num < CGFLOAT_MAX, @"%@ (%f) must be a real positive integer.", description, num)
+#define CKCAssertPositiveReal(description, num) \
+  CKCAssert(num >= 0 && num < CGFLOAT_MAX, @"%@ (%f) must be a real positive integer.", description, num)
 
-#define RCCAssertInfOrPositiveReal(description, num) \
-  RCCAssert(isinf(num) || (num >= 0 && num < CGFLOAT_MAX), @"%@ (%f) must be infinite or a real positive integer.", description, num)
+#define CKCAssertInfOrPositiveReal(description, num) \
+  CKCAssert(isinf(num) || (num >= 0 && num < CGFLOAT_MAX), @"%@ (%f) must be infinite or a real positive integer.", description, num)
 
-#define RCCAssertWidth(min, max) \
-  RCCAssert(min.width <= max.width, @"Range min width (%f) must not be larger than max width (%f).", min.width, max.width)
+#define CKCAssertWidth(min, max) \
+  CKCAssert(min.width <= max.width, @"Range min width (%f) must not be larger than max width (%f).", min.width, max.width)
 
-#define RCCAssertHeight(min, max) \
-  RCCAssert(min.height <= max.height, @"Range min height (%f) must not be larger than max height (%f).", min.height, max.height)
+#define CKCAssertHeight(min, max) \
+  CKCAssert(min.height <= max.height, @"Range min height (%f) must not be larger than max height (%f).", min.height, max.height)
 
 CKSizeRange::CKSizeRange(const CGSize &_min, const CGSize &_max) : min(_min), max(_max)
 {
-  RCCAssertPositiveReal(@"Range min width", min.width);
-  RCCAssertPositiveReal(@"Range min height", min.height);
-  RCCAssertInfOrPositiveReal(@"Range max width", max.width);
-  RCCAssertInfOrPositiveReal(@"Range max height", max.height);
-  RCCAssertWidth(min, max);
-  RCCAssertHeight(min, max);
+  CKCAssertPositiveReal(@"Range min width", min.width);
+  CKCAssertPositiveReal(@"Range min height", min.height);
+  CKCAssertInfOrPositiveReal(@"Range max width", max.width);
+  CKCAssertInfOrPositiveReal(@"Range max height", max.height);
+  CKCAssertWidth(min, max);
+  CKCAssertHeight(min, max);
 }
 
 CGSize CKSizeRange::clamp(const CGSize &size) const
@@ -97,10 +97,10 @@ size_t CKSizeRange::hash() const
     hasher(max.width),
     hasher(max.height)
   };
-  return RCIntegerArrayHash(subhashes, CK_ARRAY_COUNT(subhashes));
+  return CKIntegerArrayHash(subhashes, CK_ARRAY_COUNT(subhashes));
 }
 
-size_t std::hash<CKSizeRange>::operator()(const CKSizeRange &s) noexcept
+size_t std::hash<CKSizeRange>::operator()(const CKSizeRange &s)
 {
   return s.hash();
 };

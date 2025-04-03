@@ -16,7 +16,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import <ComponentTextKit/CKTextKitRenderer.h>
+#import <ComponentKit/CKTextKitRenderer.h>
 
 @protocol CKTextKitTruncating <NSObject>
 

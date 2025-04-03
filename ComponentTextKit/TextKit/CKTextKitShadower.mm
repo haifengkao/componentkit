@@ -8,7 +8,7 @@
  *
  */
 
-#import <ComponentTextKit/CKTextKitShadower.h>
+#import <ComponentKit/CKTextKitShadower.h>
 
 static inline CGSize _insetSize(CGSize size, UIEdgeInsets insets)
 {

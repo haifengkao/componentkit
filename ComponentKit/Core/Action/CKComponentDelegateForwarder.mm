@@ -13,8 +13,7 @@
 #import <vector>
 #import <objc/runtime.h>
 
-#import <RenderCore/RCAssert.h>
-#import <ComponentKit/CKCollection.h>
+#import <ComponentKit/CKAssert.h>
 
 #import "CKComponent+UIView.h"
 #import "CKComponentSubclass.h"
@@ -61,7 +60,7 @@ std::string CKIdentifierFromDelegateForwarderSelectors(const CKComponentForwarde
   if ([super respondsToSelector:aSelector]) {
     return YES;
   } else {
-    return CK::Collection::contains(_selectors, aSelector);
+    return selectorInList(aSelector, _selectors);
   }
 }
 
@@ -73,13 +72,13 @@ std::string CKIdentifierFromDelegateForwarderSelectors(const CKComponentForwarde
   // invoked on this object. In this case, we have no option but to assert, and not crash, as we do with unhandled
   // component actions.
   SEL selector = anInvocation.selector;
-  if (CK::Collection::contains(_selectors, selector)) {
+  if (selectorInList(selector, _selectors)) {
     CKComponent *responder = CKMountedComponentForView(_view);
     id target = [responder targetForAction:selector withSender:responder];
     if (!target) {
-      RCFailAssertWithCategory(
+      CKFailAssertWithCategory(
         CKLastMountedComponentClassNameForView(_view),
-        @"Delegate method is being called on an unmounted component's view: %@ selector:%@",
+        @"Delegate method is being called on an unmounted component's view: %@ selector:%@", 
         _view,
         NSStringFromSelector(selector));
       return;
@@ -96,7 +95,7 @@ std::string CKIdentifierFromDelegateForwarderSelectors(const CKComponentForwarde
   if (sig) {
     return sig;
   }
-  if (CK::Collection::contains(_selectors, aSelector)) {
+  if (selectorInList(aSelector, _selectors)) {
     CKComponent *responder = CKMountedComponentForView(_view);
     id target = [responder targetForAction:aSelector withSender:responder];
     // We must return a non-nil method signature even if there is no real method signature to return, or we will just
@@ -110,6 +109,11 @@ std::string CKIdentifierFromDelegateForwarderSelectors(const CKComponentForwarde
 {
   CKComponent *responder = CKMountedComponentForView(_view);
   return [responder targetForAction:aSelector withSender:responder];
+}
+
+static BOOL selectorInList(SEL selector, const CKComponentForwardedSelectors &selectors)
+{
+  return std::find(selectors.begin(), selectors.end(), selector) != selectors.end();
 }
 
 @end

@@ -89,7 +89,7 @@
 
 - (BOOL)isEqual:(id)object
 {
-  return RCCompareObjectEquality(self, object, ^(CKKeyWrapper *a, CKKeyWrapper *b){
+  return CKCompareObjectEquality(self, object, ^(CKKeyWrapper *a, CKKeyWrapper *b){
     return [a->_key isEqual:b->_key];
   });
 }

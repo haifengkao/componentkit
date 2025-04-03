@@ -60,7 +60,6 @@ CKDataSourceState *CKDataSourceTestState(CKComponentProviderFunc provider,
 
 CKDataSource *CKComponentTestDataSource(CKComponentProviderFunc provider,
                                         id<CKDataSourceListener> listener,
-                                        id<CKAnalyticsListener> analyticsListener,
                                         CKDataSourceOptions options)
 {
   const auto configuration =
@@ -71,7 +70,7 @@ CKDataSource *CKComponentTestDataSource(CKComponentProviderFunc provider,
    options:options
    componentPredicates:{}
    componentControllerPredicates:{}
-   analyticsListener:analyticsListener];
+   analyticsListener:nil];
   const auto ds = [[CKDataSource alloc] initWithConfiguration:configuration];
   [ds addListener:listener];
 

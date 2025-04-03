@@ -20,7 +20,7 @@
 @class CKComponentRootView;
 @class UIView;
 
-struct RCLayout;
+struct CKComponentLayout;
 
 /**
  CKComponentHierarchyDebugHelper allows

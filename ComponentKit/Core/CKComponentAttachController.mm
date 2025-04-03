@@ -12,7 +12,7 @@
 #import "CKComponentInternal.h"
 
 #import <ComponentKit/CKAnalyticsListener.h>
-#import <ComponentKit/RCAssociatedObject.h>
+#import <ComponentKit/CKAssociatedObject.h>
 #import <ComponentKit/CKDelayedNonNull.h>
 #import <ComponentKit/CKOptional.h>
 
@@ -29,6 +29,9 @@
    */
   NSMutableDictionary *_scopeIdentifierToAttachedViewMap;
   NSMapTable<NSNumber *, id<CKComponentRootLayoutProvider>> *_scopeIdentifierToLayoutProvider;
+  CK::Optional<CK::Component::RootViewPool> _rootViewPool;
+  // This is used for pushing all root views to view pool upon deallocation.
+  NSHashTable<id<CKComponentRootViewHost>> *_rootViewHosts;
 }
 
 #pragma mark - Initialization/Teardown
@@ -46,9 +49,11 @@
 - (void)dealloc
 {
   NSDictionary *scopeIdentifierToAttachedViewMap = _scopeIdentifierToAttachedViewMap;
+  auto rootViewPool = _rootViewPool;
+  const auto rootViewHosts = _rootViewHosts;
   dispatch_block_t viewTearDownBlock = ^{
     NSArray *views = [scopeIdentifierToAttachedViewMap allValues];
-    tearDownAttachStateFromViews(views);
+    tearDownAttachStateFromViews(views, rootViewPool, rootViewHosts);
   };
   if ([[NSThread currentThread] isMainThread]) {
     viewTearDownBlock();
@@ -57,19 +62,81 @@
   }
 }
 
+- (void)setRootViewPool:(CK::Component::RootViewPool)rootViewPool
+{
+  CKAssertFalse(_rootViewPool.hasValue());
+  _rootViewPool = rootViewPool;
+  _rootViewHosts = [[NSHashTable alloc]
+                    initWithOptions:NSHashTableStrongMemory | NSHashTableObjectPointerPersonality
+                    capacity:20];
+}
+
+- (void)pushRootViewsToViewPool
+{
+  _rootViewPool.apply([&](auto &rootViewPool) {
+    for (id<CKComponentRootViewHost> rootViewHost : _rootViewHosts) {
+      if (const auto rootView = rootViewHost.rootView) {
+        [self _detachComponentLayoutFromView:rootView];
+      }
+    }
+    pushRootViewsToViewPool(rootViewPool, _rootViewHosts);
+  });
+}
+
+auto CKUpdateComponentRootViewHost(CK::NonNull<id<CKComponentRootViewHost>> rootViewHost,
+                                   CK::NonNull<NSString *> rootViewCategory,
+                                   CK::NonNull<CKComponentAttachController *> attachController) -> void
+{
+  CKCAssert(attachController->_rootViewPool.hasValue(), @"Root view pool must be provided when root view host is used.");
+
+  [attachController->_rootViewHosts addObject:rootViewHost];
+  attachController->_rootViewPool.apply([&](auto &rootViewPool) {
+    const auto previousRootViewCategory = [rootViewHost rootViewCategory];
+    const auto previousRootView = [rootViewHost rootView];
+
+    if ([previousRootViewCategory isEqualToString:rootViewCategory]) {
+      return;
+    }
+
+    // Detach layout from previous root view so that components are properly unmounted.
+    [attachController _detachComponentLayoutFromView:previousRootView];
+
+    // Push previous root view to root view pool.
+    if (previousRootViewCategory && previousRootView) {
+      rootViewPool.pushRootViewWithCategory(CK::makeNonNull(previousRootView),
+                                            CK::makeNonNull(previousRootViewCategory));
+    }
+
+    auto rootView = rootViewPool.popRootViewWithCategory(rootViewCategory);
+    // New root view will be created when there is no root view available from root view pool.
+    if (!rootView) {
+      rootView = [rootViewHost createRootView];
+    }
+    [rootViewHost setRootView:rootView];
+    [rootViewHost setRootViewCategory:rootViewCategory];
+  });
+}
+
 #pragma mark - Public API
 
 void CKComponentAttachControllerAttachComponentRootLayout(
     CKComponentAttachController *const self,
     const CKComponentAttachControllerAttachComponentRootLayoutParams &params)
 {
-  RCCAssertMainThread();
+  CKCAssertMainThread();
   if (self == nil) {
-    RCCAssert(self, @"Impossible to attach a component layout to a nil attachController");
+    CKCAssert(self, @"Impossible to attach a component layout to a nil attachController");
     return;
   }
 
-  const auto view = params.view;
+  const auto view = params.view.match([&](CK::NonNull<UIView *> v) {
+    return v;
+  }, [&](CK::NonNull<id<CKComponentRootViewHost>> rootViewHost,
+         CK::NonNull<NSString *> rootViewCategory) {
+    CKUpdateComponentRootViewHost(rootViewHost, rootViewCategory, CK::makeNonNull(self));
+    return CK::makeNonNull([rootViewHost rootView]);
+  });
+
   UIView *currentlyAttachedView = self->_scopeIdentifierToAttachedViewMap[@(params.scopeIdentifier)];
   // If the component tree currently attached to the view is different from the one we want to attach
   if (currentlyAttachedView != view) {
@@ -93,7 +160,8 @@ void CKComponentAttachControllerAttachComponentRootLayout(
                                                       view,
                                                       params.scopeIdentifier,
                                                       params.boundsAnimation,
-                                                      params.analyticsListener);
+                                                      params.analyticsListener,
+                                                      params.isUpdate);
   // Mark the view as attached and associates it to the right attach state
   self->_scopeIdentifierToAttachedViewMap[@(params.scopeIdentifier)] = view;
   // Save layout provider in map, it will be used for figuring out animations between two layouts.
@@ -104,13 +172,13 @@ void CKComponentAttachControllerAttachComponentRootLayout(
 
 - (void)detachComponentLayoutWithScopeIdentifier:(CKComponentScopeRootIdentifier)scopeIdentifier
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [self _detachComponentLayoutWithScopeIdentifier:@(scopeIdentifier)];
 }
 
 - (void)detachAll
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   for (NSNumber *const scopeIdentifier in _scopeIdentifierToAttachedViewMap.allKeys) {
     [self _detachComponentLayoutWithScopeIdentifier:scopeIdentifier];
   }
@@ -152,30 +220,24 @@ static CKComponentAttachState *mountComponentLayoutInView(const CKComponentRootL
                                                           UIView *view,
                                                           CKComponentScopeRootIdentifier scopeIdentifier,
                                                           const CKComponentBoundsAnimation &boundsAnimation,
-                                                          id<CKAnalyticsListener> analyticsListener)
+                                                          id<CKAnalyticsListener> analyticsListener,
+                                                          BOOL isUpdate)
 {
-  RCCAssertNotNil(view, @"Impossible to mount a component layout on a nil view");
+  CKCAssertNotNil(view, @"Impossible to mount a component layout on a nil view");
   [analyticsListener willCollectAnimationsFromComponentTreeWithRootComponent:rootLayout.component()];
   const auto animatedComponents = CK::animatedComponentsBetweenLayouts(rootLayout, prevLayout);
   const auto animations = CK::animationsForComponents(animatedComponents, view);
-  [analyticsListener didCollectAnimations:animations
-                           fromComponents:animatedComponents
-         inComponentTreeWithRootComponent:rootLayout.component()
-                      scopeRootIdentifier:scopeIdentifier];
+  [analyticsListener didCollectAnimationsFromComponentTreeWithRootComponent:rootLayout.component()];
 
   auto const oldAttachState = CKGetAttachStateForView(view);
   NSSet *currentlyMountedComponents = oldAttachState.mountedComponents;
   __block NSSet *newMountedComponents = nil;
   const auto mountPerformer = ^{
-    __block NSMutableSet<CKComponent *> *unmountedComponents;
+    __block NSSet<CKComponent *> *unmountedComponents;
     CKComponentBoundsAnimationApply(boundsAnimation, ^{
-      newMountedComponents = CKMountComponentLayout(rootLayout.layout(), view, currentlyMountedComponents, nil, analyticsListener);
-
-      // This could probably be done more efficiently by making mountPerformer
-      // return a pair: currentlyMountedComponents & newMountedComponents.
-      // Then we can skip the allocation and simply enumerate over the two sets.
-      unmountedComponents = [currentlyMountedComponents mutableCopy];
-      [unmountedComponents minusSet:newMountedComponents];
+      const auto result = CKMountComponentLayout(rootLayout.layout(), view, currentlyMountedComponents, nil, analyticsListener, isUpdate);
+      newMountedComponents = result.mountedComponents;
+      unmountedComponents = result.unmountedComponents;
     }, nil);
     return unmountedComponents;
   };
@@ -191,7 +253,24 @@ static CKComponentAttachState *mountComponentLayoutInView(const CKComponentRootL
   return attachState;
 }
 
-static void tearDownAttachStateFromViews(NSArray<UIView *> *views)
+static void pushRootViewsToViewPool(CK::Component::RootViewPool &rootViewPool,
+                                    NSHashTable<id<CKComponentRootViewHost>> *rootViewHosts)
+{
+  for (id<CKComponentRootViewHost> rootViewHost : rootViewHosts) {
+    const auto rootViewCategory = rootViewHost.rootViewCategory;
+    const auto rootView = rootViewHost.rootView;
+    if (rootViewCategory && rootView) {
+      [rootViewHost rootViewWillEnterViewPool];
+      rootViewPool.pushRootViewWithCategory(CK::makeNonNull(rootView),
+                                            CK::makeNonNull(rootViewCategory));
+    }
+  }
+  [rootViewHosts removeAllObjects];
+}
+
+static void tearDownAttachStateFromViews(NSArray<UIView *> *views,
+                                         CK::Optional<CK::Component::RootViewPool> rootViewPool,
+                                         NSHashTable<id<CKComponentRootViewHost>> *rootViewHosts)
 {
   for (UIView *view in views) {
     CKComponentAttachState *attachState = CKGetAttachStateForView(view);
@@ -200,6 +279,11 @@ static void tearDownAttachStateFromViews(NSArray<UIView *> *views)
       CKSetAttachStateForView(view, nil);
     }
   }
+
+  // Push root views to view pool when attach controller is deallocated.
+  rootViewPool.apply([&](auto &rootViewPool) {
+    pushRootViewsToViewPool(rootViewPool, rootViewHosts);
+  });
 }
 
 @end
@@ -252,10 +336,10 @@ static char const kViewAttachStateKey = ' ';
 
 auto CKGetAttachStateForView(UIView *view) -> CKComponentAttachState *
 {
-  return objc_getAssociatedObject(view, &kViewAttachStateKey);
+  return CKGetAssociatedObject_MainThreadAffined(view, &kViewAttachStateKey);
 }
 
 auto CKSetAttachStateForView(UIView *view, CKComponentAttachState *attachState) -> void
 {
-  objc_setAssociatedObject(view, &kViewAttachStateKey, attachState, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+  CKSetAssociatedObject_MainThreadAffined(view, &kViewAttachStateKey, attachState);
 }

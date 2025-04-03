@@ -117,9 +117,9 @@ CK::Component::MountContext CKDebugMountContext(Class componentClass,
   auto it = debugViewConfigurations->find(componentClass);
   if (it == debugViewConfigurations->end()) {
     NSString *debugViewClassName = [NSStringFromClass(componentClass) stringByAppendingString:@"View_Debug"];
-    RCCAssertNil(NSClassFromString(debugViewClassName), @"Didn't expect class to already exist");
+    CKCAssertNil(NSClassFromString(debugViewClassName), @"Didn't expect class to already exist");
     Class debugViewClass = objc_allocateClassPair([CKComponentDebugView class], [debugViewClassName UTF8String], 0);
-    RCCAssertNotNil(debugViewClass, @"Expected class to be created");
+    CKCAssertNotNil(debugViewClass, @"Expected class to be created");
     objc_registerClassPair(debugViewClass);
     debugViewConfigurations->insert({componentClass, CKComponentViewConfiguration(debugViewClass)});
   }

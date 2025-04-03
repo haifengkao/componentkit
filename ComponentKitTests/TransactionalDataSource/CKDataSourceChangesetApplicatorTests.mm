@@ -30,9 +30,6 @@
 // Indicates how many times `applyChange:` is called if change is verified.
 @property (nonatomic, readonly, assign) NSUInteger applyChangeCount;
 
-@property (nonatomic, copy) void(^willVerifyChange)(void);
-@property (nonatomic, copy) void(^didApplyChange)(void);
-
 - (void)sendNewState;
 - (void)sendNewStateWithSizeRange:(CKSizeRange)sizeRange;
 
@@ -42,6 +39,10 @@
 
 @end
 
+// Use without relying on lifecycle of `dataSource`.
+static NSUInteger _globalVerifyChangeCount = 0;
+static NSUInteger _globalApplyChangeCount = 0;
+
 @implementation CKDataSourceChangesetApplicatorTests
 {
   CKDataSourceMock *_dataSource;
@@ -49,7 +50,6 @@
   dispatch_queue_t _queue;
 
   std::atomic<NSUInteger> _buildComponentCount;
-  UITraitCollection *_currentTraitCollection;
 }
 
 - (void)setUp
@@ -77,6 +77,8 @@
 {
   _dataSource = nil;
   _changesetApplicator = nil;
+  _globalVerifyChangeCount = 0;
+  _globalApplyChangeCount = 0;
 }
 
 - (void)testChangeIsAppliedAfterApplyChangesetIsCalled
@@ -88,6 +90,19 @@
   });
   [self waitUntilChangesetApplicatorFinishesItsTasksOnMainQueue];
   [self assertNumberOfSuccessfulChanges:1 numberOfFailedChanges:0];
+}
+
+- (void)testChangesetIsNotAppliedIfDataSourceIsDeallocated
+{
+  dispatch_sync(_queue, ^{
+    [self->_changesetApplicator applyChangeset:defaultChangeset()
+                                      userInfo:@{}
+                                           qos:CKDataSourceQOSDefault];
+  });
+  _dataSource = nil;
+  [self waitUntilChangesetApplicatorFinishesItsTasksOnMainQueue];
+  XCTAssertEqual(_globalVerifyChangeCount, 0);
+  XCTAssertEqual(_globalApplyChangeCount, 0);
 }
 
 - (void)testChangesAreAppliedSequentiallyAfterApplyChangesetIsCalledMultipleTimes
@@ -287,26 +302,6 @@
   [self assertNumberOfSuccessfulChanges:2 numberOfFailedChanges:2];
 }
 
-- (void)testCurrentTraitCollectionIsCorrectInWorkQueue
-{
-  if (@available(iOS 13.0, tvOS 13.0, *)) {
-    [_changesetApplicator setTraitCollection:[UITraitCollection traitCollectionWithUserInterfaceIdiom:UIUserInterfaceIdiomCarPlay]];
-    [_changesetApplicator
-     applyChangeset:
-     [[[[CKDataSourceChangesetBuilder dataSourceChangeset]
-        withInsertedItems:@{
-          [NSIndexPath indexPathForItem:0 inSection:0]: @0,
-        }]
-       withInsertedSections:[NSIndexSet indexSetWithIndex:0]] build]
-     userInfo:@{}
-     qos:CKDataSourceQOSDefault];
-    CKRunRunLoopUntilBlockIsTrue(^BOOL{
-      return _buildComponentCount == 1;
-    });
-    XCTAssertEqual(_currentTraitCollection.userInterfaceIdiom, UIUserInterfaceIdiomCarPlay);
-  }
-}
-
 static CKComponent *componentProvider(id<NSObject> model, id<NSObject> context)
 {
   return CK::ComponentBuilder()
@@ -319,10 +314,8 @@ static CKComponent *componentProvider(id<NSObject> model, id<NSObject> context)
 - (void)willBuildComponentTreeWithScopeRoot:(CKComponentScopeRoot *)scopeRoot
                                buildTrigger:(CKBuildTrigger)buildTrigger
                                stateUpdates:(const CKComponentStateUpdateMap &)stateUpdates
+          enableComponentReuseOptimizations:(BOOL)enableComponentReuseOptimizations
 {
-  if (@available(iOS 13.0, tvOS 13.0, *)) {
-    _currentTraitCollection = [UITraitCollection currentTraitCollection];
-  }
   _buildComponentCount++;
 }
 
@@ -330,15 +323,12 @@ static CKComponent *componentProvider(id<NSObject> model, id<NSObject> context)
                               buildTrigger:(CKBuildTrigger)buildTrigger
                               stateUpdates:(const CKComponentStateUpdateMap &)stateUpdates
                                  component:(CKComponent *)component
-                           boundsAnimation:(const CKComponentBoundsAnimation &)boundsAnimation
+         enableComponentReuseOptimizations:(BOOL)enableComponentReuseOptimizations
 {
 
 }
 
-- (void)didCollectAnimations:(const CKComponentAnimations &)animations
-              fromComponents:(const CK::ComponentTreeDiff &)animatedComponents
-inComponentTreeWithRootComponent:(id<CKMountable>)component
-         scopeRootIdentifier:(CKComponentScopeRootIdentifier)scopeRootID
+- (void)didCollectAnimationsFromComponentTreeWithRootComponent:(id<CKMountable>)component
 {
 
 }
@@ -354,7 +344,7 @@ inComponentTreeWithRootComponent:(id<CKMountable>)component
 
 }
 
-- (void)didReuseNode:(CKTreeNode *)node
+- (void)didReuseNode:(id<CKTreeNodeProtocol>)node
          inScopeRoot:(CKComponentScopeRoot *)scopeRoot
 fromPreviousScopeRoot:(CKComponentScopeRoot *)previousScopeRoot
 {
@@ -373,9 +363,9 @@ fromPreviousScopeRoot:(CKComponentScopeRoot *)previousScopeRoot
 
 - (BOOL)shouldCollectTreeNodeCreationInformation:(CKComponentScopeRoot *)scopeRoot { return NO; }
 
-- (void)didBuildTreeNodeForPrecomputedChild:(id<CKComponentProtocol>)component
-                                       node:(CKTreeNode *)node
-                                     parent:(CKTreeNode *)parent
+- (void)didBuildTreeNodeForPrecomputedChild:(id<CKTreeNodeComponentProtocol>)component
+                                       node:(id<CKTreeNodeProtocol>)node
+                                     parent:(id<CKTreeNodeWithChildrenProtocol>)parent
                                      params:(const CKBuildComponentTreeParams &)params
                        parentHasStateUpdate:(BOOL)parentHasStateUpdate {}
 
@@ -393,10 +383,6 @@ fromPreviousScopeRoot:(CKComponentScopeRoot *)previousScopeRoot
 {
 
 }
-
-- (void)didReceiveStateUpdateFromScopeHandle:(CKComponentScopeHandle *)handle rootIdentifier:(CKComponentScopeRootIdentifier)rootID {
-}
-
 
 #pragma mark - Helpers
 
@@ -460,9 +446,7 @@ static CKDataSourceChangeset *defaultChangeset()
   const auto applied = [super applyChange:change];
   if (applied) {
     _applyChangeCount++;
-    if (_didApplyChange) {
-      _didApplyChange();
-    }
+    _globalApplyChangeCount++;
   }
   return applied;
 }
@@ -470,9 +454,7 @@ static CKDataSourceChangeset *defaultChangeset()
 - (BOOL)verifyChange:(CKDataSourceChange *)change
 {
   _verifyChangeCount++;
-  if (_willVerifyChange) {
-    _willVerifyChange();
-  }
+  _globalVerifyChangeCount++;
   return [super verifyChange:change];
 }
 

@@ -62,11 +62,7 @@ private:
     constexpr auto overlayIsSet = PropBitmap::isSet(PropsBitmap, OverlayLayoutComponentPropId::overlay);
     static_assert(overlayIsSet, "Required property 'overlay' is not set.");
 
-    if (_component != nil) {
-      return [[CKOverlayLayoutComponent alloc] initWithComponent:_component overlay:_overlay];
-    } else {
-      return nil;
-    }
+    return [CKOverlayLayoutComponent newWithComponent:_component overlay:_overlay];
   }
 
 private:

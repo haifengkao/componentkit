@@ -20,7 +20,7 @@
 CKGestureRecognizerReusePool::CKGestureRecognizerReusePool(Class gestureRecognizerClass, CKComponentGestureRecognizerSetupFunction setupFunction)
 : _gestureRecognizerClass(gestureRecognizerClass), _setupFunction(setupFunction) {}
 
-UIGestureRecognizer *CKGestureRecognizerReusePool::get() noexcept {
+UIGestureRecognizer *CKGestureRecognizerReusePool::get() {
   if (_reusePool.empty()) {
     UIGestureRecognizer *ret =
     [[_gestureRecognizerClass alloc] initWithTarget:[CKComponentGestureActionForwarder sharedInstance]
@@ -36,7 +36,7 @@ UIGestureRecognizer *CKGestureRecognizerReusePool::get() noexcept {
   }
 }
 
-void CKGestureRecognizerReusePool::recycle(UIGestureRecognizer *recognizer) noexcept {
+void CKGestureRecognizerReusePool::recycle(UIGestureRecognizer *recognizer) {
   static const size_t kLimit = 5;
   if (_reusePool.size() < kLimit) {
     _reusePool.push_back(recognizer);

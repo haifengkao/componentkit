@@ -9,12 +9,10 @@
  */
 
 #import "CKComponentScopeHandle.h"
-#include <atomic>
 
 #include <mutex>
 
 #import <ComponentKit/CKInternalHelpers.h>
-#import <ComponentKit/CKTreeNode.h>
 #import <ComponentKit/CKMutex.h>
 
 #import "CKComponentScopeRoot.h"
@@ -39,16 +37,40 @@
   CKScopedResponder *_scopedResponder;
 }
 
++ (CKComponentScopeHandle *)handleForComponent:(id<CKComponentProtocol>)component
+{
+  CKThreadLocalComponentScope *currentScope = CKThreadLocalComponentScope::currentScope();
+  if (currentScope == nullptr) {
+    return nil;
+  }
+
+  // `handleForComponent` is being called for every non-render component from the base constructor of `CKComponent`.
+  // We can rely on this infomration to increase the `componentAllocations` counter.
+  currentScope->componentAllocations++;
+
+  CKComponentScopeHandle *handle = currentScope->stack.top().frame.scopeHandle;
+  if ([handle acquireFromComponent:component]) {
+    [currentScope->newScopeRoot registerComponent:component];
+    return handle;
+  }
+  CKAssertWithCategory([component.class controllerClass] == Nil || [component conformsToProtocol:@protocol(CKRenderComponentProtocol)],
+    NSStringFromClass([component class]),
+    @"Component has a controller but no scope! Make sure you construct your scope(self) "
+    "before constructing the component or CKComponentTestRootScope at the start of the test.");
+
+  return nil;
+}
+
 - (instancetype)initWithListener:(id<CKComponentStateListener>)listener
                   rootIdentifier:(CKComponentScopeRootIdentifier)rootIdentifier
-               componentTypeName:(const char *)componentTypeName
+                  componentClass:(Class)componentClass
                     initialState:(id)initialState
 {
-  static std::atomic_int32_t nextGlobalIdentifier;
+  static int32_t nextGlobalIdentifier = 0;
   return [self initWithListener:listener
-               globalIdentifier:++nextGlobalIdentifier
+               globalIdentifier:OSAtomicIncrement32(&nextGlobalIdentifier)
                  rootIdentifier:rootIdentifier
-              componentTypeName:componentTypeName
+                 componentClass:componentClass
                           state:initialState
                      controller:nil  // Controllers are built on resolution of the handle.
                 scopedResponder:nil];  // Scoped responders are created lazily. Once they exist, we use that reference for future handles.
@@ -57,7 +79,7 @@
 - (instancetype)initWithListener:(id<CKComponentStateListener>)listener
                 globalIdentifier:(CKComponentScopeHandleIdentifier)globalIdentifier
                   rootIdentifier:(CKComponentScopeRootIdentifier)rootIdentifier
-               componentTypeName:(const char *)componentTypeName
+                  componentClass:(Class<CKComponentProtocol>)componentClass
                            state:(id)state
                       controller:(id<CKComponentControllerProtocol>)controller
                  scopedResponder:(CKScopedResponder *)scopedResponder
@@ -66,7 +88,7 @@
     _listener = listener;
     _globalIdentifier = globalIdentifier;
     _rootIdentifier = rootIdentifier;
-    _componentTypeName = componentTypeName;
+    _componentClass = componentClass;
     _state = state;
     _controller = controller;
 
@@ -76,21 +98,8 @@
   return self;
 }
 
-- (instancetype)newStatelessHandle
-{
-  const auto handle = [[CKComponentScopeHandle alloc] initWithListener:_listener
-                                                      globalIdentifier:_globalIdentifier
-                                                        rootIdentifier:_rootIdentifier
-                                                     componentTypeName:_componentTypeName
-                                                                 state:nil
-                                                            controller:nil
-                                                       scopedResponder:nil];
-  // This handle isn't meant to be resolved, marking as `YES`.
-  handle->_resolved = YES;
-  return handle;
-}
-
 - (instancetype)newHandleWithStateUpdates:(const CKComponentStateUpdateMap &)stateUpdates
+                       componentScopeRoot:(CKComponentScopeRoot *)componentScopeRoot
 {
   id updatedState = _state;
   const auto pendingUpdatesIt = stateUpdates.find(self);
@@ -102,10 +111,11 @@
     }
   }
 
+  [componentScopeRoot registerComponentController:_controller];
   return [[CKComponentScopeHandle alloc] initWithListener:_listener
                                          globalIdentifier:_globalIdentifier
                                            rootIdentifier:_rootIdentifier
-                                        componentTypeName:_componentTypeName
+                                           componentClass:_componentClass
                                                     state:updatedState
                                                controller:_controller
                                           scopedResponder:_scopedResponder];
@@ -113,13 +123,13 @@
 
 - (id<CKComponentControllerProtocol>)controller
 {
-  RCAssert(_resolved, @"Requesting controller from scope handle before resolution. The controller will be nil.");
+  CKAssert(_resolved, @"Requesting controller from scope handle before resolution. The controller will be nil.");
   return _controller;
 }
 
 - (void)dealloc
 {
-  RCAssert(_resolved, @"Must be resolved before deallocation.");
+  CKAssert(_resolved, @"Must be resolved before deallocation.");
 }
 
 #pragma mark - State
@@ -128,8 +138,8 @@
            metadata:(const CKStateUpdateMetadata &)metadata
                mode:(CKUpdateMode)mode
 {
-  RCAssertNotNil(updateBlock, @"The update block cannot be nil");
-  if (![NSThread isMainThread] && [(id<CKComponentStateListener>)[_listener class] requiresMainThreadAffinedStateUpdates]) {
+  CKAssertNotNil(updateBlock, @"The update block cannot be nil");
+  if (![NSThread isMainThread]) {
     // Passing a const& into a block is scary, make a local copy to be safe.
     const auto metadataCopy = metadata;
     dispatch_async(dispatch_get_main_queue(), ^{
@@ -146,7 +156,7 @@
 
 - (void)replaceState:(id)state
 {
-  RCAssertFalse(_resolved);
+  CKAssertFalse(_resolved);
   _state = state;
 }
 
@@ -154,7 +164,7 @@
 
 - (BOOL)acquireFromComponent:(id<CKComponentProtocol>)component
 {
-  if (!_acquired && component.typeName == _componentTypeName) {
+  if (!_acquired && [component isMemberOfClass:_componentClass]) {
     _acquired = YES;
     _acquiredComponent = component;
     return YES;
@@ -163,55 +173,42 @@
   }
 }
 
-- (void)relinquishComponent
-{
-  _acquiredComponent = nil;
-}
-
 - (void)forceAcquireFromComponent:(id<CKComponentProtocol>)component
 {
-  RCAssert(component.typeName == _componentTypeName, @"%s has to be a member of %s class", component.typeName, _componentTypeName);
-  RCAssert(!_acquired, @"scope handle cannot be acquired twice");
+  CKAssert([component isMemberOfClass:_componentClass], @"%@ has to be a member of %@ class", component, _componentClass);
+  CKAssert(!_acquired, @"scope handle cannot be acquired twice");
   _acquired = YES;
   _acquiredComponent = component;
 }
 
-- (void)setTreeNode:(CKTreeNode *)treeNode
+- (void)setTreeNode:(id<CKTreeNodeProtocol>)treeNode
 {
-  RCAssertWithCategory(_treeNodeIdentifier == 0,
+  CKAssertWithCategory(_treeNodeIdentifier == 0,
                        NSStringFromClass([_acquiredComponent class]),
                        @"_treeNodeIdentifier cannot be set twice");
   _treeNodeIdentifier = treeNode.nodeIdentifier;
   _treeNode = treeNode;
 }
 
-- (void)resolveAndRegisterInScopeRoot:(CKComponentScopeRoot *)scopeRoot
+- (void)resolve
 {
-  [self resolveInScopeRoot:scopeRoot];
-  [self registerInScopeRoot:scopeRoot];
-}
-
-- (void)resolveInScopeRoot:(CKComponentScopeRoot *)scopeRoot
-{
-  RCAssertFalse(_resolved);
-
-  // Strong ref: _acquiredComponent may be nil when rendering-to-nil as the
-  // handle won't be acquired.
+  CKAssertFalse(_resolved);
+  // Strong ref
   const auto acquiredComponent = _acquiredComponent;
-  if (acquiredComponent != nil && _controller == nil) {
-    // Build the controller on the first non nil component.
+  // _acquiredComponent may be nil if a component scope was declared before an early return. In that case, the scope
+  // handle will not be acquired, and we should avoid creating a component controller for the nil component.
+  if (!_controller && acquiredComponent) {
     _controller = [acquiredComponent buildController];
+    if (_controller) {
+      CKThreadLocalComponentScope *const currentScope = CKThreadLocalComponentScope::currentScope();
+      if (currentScope) {
+        [currentScope->newScopeRoot registerComponentController:_controller];
+      } else {
+        CKFailAssert(@"Current scope should never be null here. Thread-local stack is corrupted.");
+      }
+    }
   }
-
   _resolved = YES;
-}
-
-- (void)registerInScopeRoot:(CKComponentScopeRoot *)scopeRoot
-{
-  // Register after scope handle resolution so the controller can be accessed
-  // in the predicates.
-  [scopeRoot registerComponent:_acquiredComponent];
-  [scopeRoot registerComponentController:_controller];
 }
 
 - (CKScopedResponder *)scopedResponder
@@ -230,6 +227,16 @@
 {
   std::vector<__weak CKComponentScopeHandle *> _handles;
   std::mutex _mutex;
+}
+
+- (instancetype)init
+{
+  if (self = [super init]) {
+    static CKScopedResponderUniqueIdentifier nextIdentifier = 0;
+    _uniqueIdentifier = OSAtomicIncrement32(&nextIdentifier);
+  }
+
+  return self;
 }
 
 - (void)addHandleToChain:(CKComponentScopeHandle *)handle
@@ -251,10 +258,10 @@
   }
 
   std::lock_guard<std::mutex> l(_mutex);
-  auto result = CK::find(_handles, handle);
+  auto result = std::find(_handles.begin(), _handles.end(), handle);
 
   if (result == _handles.end()) {
-    RCFailAssert(@"This scope handle is not associated with this Responder.");
+    CKFailAssert(@"This scope handle is not associated with this Responder.");
     return notFoundKey;
   }
 
@@ -268,7 +275,7 @@
 
   const size_t numberOfHandles = _handles.size();
   if (key < 0 || key >= numberOfHandles) {
-    RCFailAssert(@"Invalid key \"%d\" for responder with %zu handles", key, numberOfHandles);
+    CKFailAssert(@"Invalid key \"%d\" for responder with %zu handles", key, numberOfHandles);
     return nil;
   }
 

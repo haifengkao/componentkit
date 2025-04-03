@@ -21,6 +21,7 @@
 #import "CKComponentControllerHelper.h"
 #import "CKComponentLayout.h"
 #import "CKComponentProvider.h"
+#import "CKComponentScopeFrame.h"
 #import "CKComponentScopeHandle.h"
 #import "CKComponentScopeRoot.h"
 #import "CKDataSourceModificationHelper.h"
@@ -30,14 +31,12 @@ using namespace CKComponentControllerHelper;
 @implementation CKDataSourceUpdateStateModification
 {
   CKComponentStateUpdatesMap _stateUpdates;
-  std::shared_ptr<CKTreeLayoutCache> _treeLayoutCache;
 }
 
-- (instancetype)initWithStateUpdates:(const CKComponentStateUpdatesMap &)stateUpdates treeLayoutCache:(std::shared_ptr<CKTreeLayoutCache>)treeLayoutCache
+- (instancetype)initWithStateUpdates:(const CKComponentStateUpdatesMap &)stateUpdates
 {
   if (self = [super init]) {
     _stateUpdates = stateUpdates;
-    _treeLayoutCache = std::move(treeLayoutCache);
   }
   return self;
 }
@@ -56,8 +55,7 @@ using namespace CKComponentControllerHelper;
   [[oldState sections] enumerateObjectsUsingBlock:^(NSArray *items, NSUInteger sectionIdx, BOOL *sectionStop) {
     NSMutableArray *newItems = [NSMutableArray array];
     [items enumerateObjectsUsingBlock:^(CKDataSourceItem *item, NSUInteger itemIdx, BOOL *itemStop) {
-      const auto scopeRootGlobalIdentifier = [[item scopeRoot] globalIdentifier];
-      const auto stateUpdatesForItem = _stateUpdates.find(scopeRootGlobalIdentifier);
+      const auto stateUpdatesForItem = _stateUpdates.find([[item scopeRoot] globalIdentifier]);
       if (stateUpdatesForItem == _stateUpdates.end()) {
         [newItems addObject:item];
       } else {
@@ -67,17 +65,16 @@ using namespace CKComponentControllerHelper;
           globalIdentifier = stateUpdate->first.globalIdentifier;
         }
         [updatedIndexPaths addObject:[NSIndexPath indexPathForItem:itemIdx inSection:sectionIdx]];
-        const auto layoutCache = _treeLayoutCache ? _treeLayoutCache->find(scopeRootGlobalIdentifier) : nullptr;
-        CKDataSourceItem *const newItem = CKBuildDataSourceItem([item scopeRoot], stateUpdatesForItem->second, sizeRange, configuration, [item model], context, layoutCache);
+        CKDataSourceItem *const newItem = CKBuildDataSourceItem([item scopeRoot], stateUpdatesForItem->second, sizeRange, configuration, [item model], context);
         [newItems addObject:newItem];
         for (auto componentController : addedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                     item.scopeRoot,
-                                                                                                     &CKComponentControllerInitializeEventPredicate)) {
+                                                                                               item.scopeRoot,
+                                                                                               &CKComponentControllerInitializeEventPredicate)) {
           [addedComponentControllers addObject:componentController];
         }
         for (auto componentController : removedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                       item.scopeRoot,
-                                                                                                       &CKComponentControllerInvalidateEventPredicate)) {
+                                                                                                 item.scopeRoot,
+                                                                                                 &CKComponentControllerInvalidateEventPredicate)) {
           [invalidComponentControllers addObject:componentController];
         }
       }

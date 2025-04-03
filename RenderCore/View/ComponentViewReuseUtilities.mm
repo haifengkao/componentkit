@@ -13,8 +13,8 @@
 #import <objc/runtime.h>
 #import <unordered_map>
 
-#import <RenderCore/RCAssert.h>
-#import <RenderCore/RCAssociatedObject.h>
+#import <RenderCore/CKAssert.h>
+#import <RenderCore/CKAssociatedObject.h>
 
 #import "CKComponentViewClass.h"
 
@@ -33,63 +33,63 @@ static char const kViewReuseInfoKey = ' ';
 - (void)ancestorWillUnhide;
 @end
 
-void ViewReuseUtilities::mountingInRootView(UIView *rootView) noexcept
+void ViewReuseUtilities::mountingInRootView(UIView *rootView)
 {
   // If we already mounted in this root view, it will already have a reuse info struct.
-  if (RCGetAssociatedObject_MainThreadAffined(rootView, &kViewReuseInfoKey)) {
+  if (CKGetAssociatedObject_MainThreadAffined(rootView, &kViewReuseInfoKey)) {
     return;
   }
 
   CKComponentViewReuseInfo *info = [[CKComponentViewReuseInfo alloc] initWithView:rootView
                                                            didEnterReusePoolBlock:nil
                                                           willLeaveReusePoolBlock:nil];
-  RCSetAssociatedObject_MainThreadAffined(rootView, &kViewReuseInfoKey, info);
+  CKSetAssociatedObject_MainThreadAffined(rootView, &kViewReuseInfoKey, info);
 }
 
-void ViewReuseUtilities::createdView(UIView *view, const CKComponentViewClass &viewClass, UIView *parent) noexcept
+void ViewReuseUtilities::createdView(UIView *view, const CKComponentViewClass &viewClass, UIView *parent)
 {
-  RCCAssertNil(RCGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey),
+  CKCAssertNil(CKGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey),
                @"Didn't expect reuse info on just-created view %@", view);
 
   CKComponentViewReuseInfo *info = [[CKComponentViewReuseInfo alloc] initWithView:view
                                                            didEnterReusePoolBlock:viewClass.didEnterReusePool
                                                           willLeaveReusePoolBlock:viewClass.willLeaveReusePool];
-  RCSetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey, info);
+  CKSetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey, info);
 
-  CKComponentViewReuseInfo *parentInfo = RCGetAssociatedObject_MainThreadAffined(parent, &kViewReuseInfoKey);
-  RCCAssertNotNil(parentInfo, @"Expected parentInfo but found none on %@", parent);
+  CKComponentViewReuseInfo *parentInfo = CKGetAssociatedObject_MainThreadAffined(parent, &kViewReuseInfoKey);
+  CKCAssertNotNil(parentInfo, @"Expected parentInfo but found none on %@", parent);
   [parentInfo registerChildViewInfo:info];
 }
 
-void ViewReuseUtilities::mountingInChildContext(UIView *view, UIView *parent) noexcept
+void ViewReuseUtilities::mountingInChildContext(UIView *view, UIView *parent)
 {
   // If this view was created by the components infrastructure, or if we've
   // mounted in it before, it will already have a reuse info struct.
-  if (RCGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey)) {
+  if (CKGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey)) {
     return;
   }
 
   CKComponentViewReuseInfo *info = [[CKComponentViewReuseInfo alloc] initWithView:view
                                                            didEnterReusePoolBlock:nil
                                                           willLeaveReusePoolBlock:nil];
-  RCSetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey, info);
+  CKSetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey, info);
 
-  CKComponentViewReuseInfo *parentInfo = RCGetAssociatedObject_MainThreadAffined(parent, &kViewReuseInfoKey);
-  RCCAssertNotNil(parentInfo, @"Expected parentInfo but found none on %@", parent);
+  CKComponentViewReuseInfo *parentInfo = CKGetAssociatedObject_MainThreadAffined(parent, &kViewReuseInfoKey);
+  CKCAssertNotNil(parentInfo, @"Expected parentInfo but found none on %@", parent);
   [parentInfo registerChildViewInfo:info];
 }
 
-void ViewReuseUtilities::didHide(UIView *view, CK::Component::MountAnalyticsContext *mountAnalyticsContext) noexcept
+void ViewReuseUtilities::didHide(UIView *view, CK::Component::MountAnalyticsContext *mountAnalyticsContext)
 {
-  CKComponentViewReuseInfo *info = RCGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey);
-  RCCAssertNotNil(info, @"Expect to find reuse info on all components-managed views but found none on %@", view);
+  CKComponentViewReuseInfo *info = CKGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey);
+  CKCAssertNotNil(info, @"Expect to find reuse info on all components-managed views but found none on %@", view);
   [info didHide:mountAnalyticsContext];
 }
 
-void ViewReuseUtilities::willUnhide(UIView *view, CK::Component::MountAnalyticsContext *mountAnalyticsContext) noexcept
+void ViewReuseUtilities::willUnhide(UIView *view, CK::Component::MountAnalyticsContext *mountAnalyticsContext)
 {
-  CKComponentViewReuseInfo *info = RCGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey);
-  RCCAssertNotNil(info, @"Expect to find reuse info on all components-managed views but found none on %@", view);
+  CKComponentViewReuseInfo *info = CKGetAssociatedObject_MainThreadAffined(view, &kViewReuseInfoKey);
+  CKCAssertNotNil(info, @"Expect to find reuse info on all components-managed views but found none on %@", view);
   [info willUnhide:mountAnalyticsContext];
 }
 

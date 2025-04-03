@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name = 'ComponentKit'
-  s.version = '0.30'
+  s.version = '0.31'
   s.license = 'BSD'
   s.summary = 'A React-inspired view framework for iOS'
   s.homepage = 'https://componentkit.org'
@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '8.1'
   s.requires_arc = true
 
-  s.source_files = 'ComponentKit/**/*'
+  s.source_files = 'ComponentKit/**/*', 'ComponentTextKit/**/*'
   s.exclude_files = ['ComponentKit/Info.plist']
   s.frameworks = 'UIKit', 'CoreText'
   s.library = 'c++'
@@ -19,6 +19,5 @@ Pod::Spec.new do |s|
     'CLANG_CXX_LIBRARY' => 'libc++',
   }
   s.dependency 'RenderCore', s.version.to_s
-  s.dependency 'ComponentTextKit', s.version.to_s
-  s.dependency 'Yoga', '~> 1.14'
+  s.dependency 'Yoga', '~> 2.0.1'
 end

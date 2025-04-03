@@ -49,23 +49,19 @@ static const CKSizeRange kSize = {{100, 120}, {320, 160}};
 - (void)testWithCenteringOptions:(CKCenterLayoutComponentCenteringOptions)options
                    sizingOptions:(CKCenterLayoutComponentSizingOptions)sizingOptions
 {
-  CKComponent *c = CK::BackgroundLayoutComponentBuilder()
-                    .component(
-                      CK::CenterLayoutComponentBuilder()
-                        .centeringOptions(options)
-                        .sizingOptions(sizingOptions)
-                        .child(CK::ComponentBuilder()
-                          .viewClass(UIView.class)
-                          .backgroundColor(UIColor.greenColor)
-                          .width(70)
-                          .height(100)
-                          .build())
-                        .build())
-                    .background(CK::ComponentBuilder()
-                      .viewClass(UIView.class)
-                      .backgroundColor(UIColor.redColor)
-                      .build())
-                    .build();
+  CKComponent *c = [CKBackgroundLayoutComponent
+                    newWithComponent:
+                    [CKCenterLayoutComponent
+                     newWithCenteringOptions:options
+                     sizingOptions:sizingOptions
+                     child:[CKComponent
+                            newWithView:{[UIView class], {{@selector(setBackgroundColor:), [UIColor greenColor]}}}
+                            size:{70.0, 100.0}]
+                     size:{}]
+                    background:
+                    [CKComponent
+                     newWithView:{[UIView class], {{@selector(setBackgroundColor:), [UIColor redColor]}}}
+                     size:{}]];
 
   CKSnapshotVerifyComponent(c, kSize, suffixForCenteringOptions(options, sizingOptions));
 }
@@ -96,26 +92,30 @@ static NSString *suffixForCenteringOptions(CKCenterLayoutComponentCenteringOptio
 
 - (void)testMinimumSizeRangeIsGivenToChildWhenNotCentering
 {
-  const auto c =
-  CK::CenterLayoutComponentBuilder()
-   .centeringOptions(CKCenterLayoutComponentCenteringNone)
-   .child(CK::BackgroundLayoutComponentBuilder()
-     .component(CK::FlexboxComponentBuilder()
-       .alignItems(CKFlexboxAlignItemsStart)
-       .child(CK::ComponentBuilder()
-         .viewClass(UIView.class)
-         .backgroundColor(UIColor.redColor)
-         .width(10)
-         .height(10)
-         .build())
-       .flexGrow(1)
-       .build())
-     .background(CK::ComponentBuilder()
-       .viewClass(UIView.class)
-       .backgroundColor(UIColor.redColor)
-       .build())
-     .build())
-   .build();
+  CKCenterLayoutComponent *c =
+  [CKCenterLayoutComponent
+   newWithCenteringOptions:CKCenterLayoutComponentCenteringNone
+   sizingOptions:{}
+   child:
+   [CKBackgroundLayoutComponent
+    newWithComponent:
+    [CKFlexboxComponent
+     newWithView:{}
+     size:{}
+     style:{.alignItems = CKFlexboxAlignItemsStart}
+     children:{
+       {
+         [CKComponent
+          newWithView:{[UIView class], {{@selector(setBackgroundColor:), [UIColor redColor]}}}
+          size:{10,10}],
+         .flexGrow = 1,
+       }
+     }]
+    background:
+    [CKComponent
+     newWithView:{[UIView class], {{@selector(setBackgroundColor:), [UIColor redColor]}}}
+     size:{}]]
+   size:{}];
   CKSnapshotVerifyComponent(c, kSize, nil);
 }
 

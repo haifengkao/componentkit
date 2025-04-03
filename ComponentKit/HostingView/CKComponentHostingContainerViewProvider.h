@@ -18,9 +18,15 @@
 #import <ComponentKit/CKComponentBoundsAnimation.h>
 #import <ComponentKit/CKComponentLayout.h>
 #import <ComponentKit/CKNonNull.h>
+#import <ComponentKit/ComponentRootViewPool.h>
 
 @protocol CKAnalyticsListener;
 @protocol CKComponentSizeRangeProviding;
+
+struct CKComponentHostingViewRootViewPoolOptions {
+  CK::NonNull<NSString *> rootViewCategory;
+  CK::Component::RootViewPool rootViewPool;
+};
 
 /**
  * Providers a container view which is used in a component hosting view that provides component mount
@@ -34,7 +40,8 @@
               scopeIdentifier:(CKComponentScopeRootIdentifier)scopeIdentifier
             analyticsListener:(id<CKAnalyticsListener>)analyticsListener
             sizeRangeProvider:(id<CKComponentSizeRangeProviding>)sizeRangeProvider
-          allowTapPassthrough:(BOOL)allowTapPassthrough NS_DESIGNATED_INITIALIZER;
+          allowTapPassthrough:(BOOL)allowTapPassthrough
+          rootViewPoolOptions:(CK::Optional<CKComponentHostingViewRootViewPoolOptions>)rootViewPoolOptions NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
 
@@ -43,7 +50,6 @@
 - (void)setComponent:(CKComponent *)component;
 
 - (void)mount;
-- (void)unmount;
 
 @end
 

@@ -34,7 +34,6 @@ namespace CK {
     };
 
     auto description() const -> NSString *;
-    auto isEmpty() const -> bool;
 
     /* Components only present in the newer version of the tree. */
     const std::vector<CKComponent *> appearedComponents = {};

@@ -12,16 +12,17 @@
 
 @implementation CKImageComponent
 
-- (instancetype)initWithImage:(UIImage *)image
++ (instancetype)newWithImage:(UIImage *)image
                   attributes:(const CKViewComponentAttributeValueMap &)attributes
-                        size:(const RCComponentSize &)size
+                        size:(const CKComponentSize &)size
 {
   CKViewComponentAttributeValueMap updatedAttributes(attributes);
   updatedAttributes.insert({
     {@selector(setImage:), image},
   });
 
-  return [super initWithView:{
+  return [self
+          newWithView:{
             [UIImageView class],
             std::move(updatedAttributes)
           } size:size];

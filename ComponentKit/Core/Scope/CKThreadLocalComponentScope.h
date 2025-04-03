@@ -17,13 +17,12 @@
 
 #import <Foundation/Foundation.h>
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKBuildComponent.h>
+#import <ComponentKit/CKComponentScopeFrame.h>
+#import <ComponentKit/CKComponentScopeHandle.h>
 #import <ComponentKit/CKGlobalConfig.h>
-#import <ComponentKit/CKNonNull.h>
-#import <ComponentKit/CKTreeNode.h>
-#import <ComponentKit/CKTreeNode.h>
-#import <ComponentKit/RCComponentCoalescingMode.h>
+#import <ComponentKit/CKTreeNodeProtocol.h>
 
 @protocol CKSystraceListener;
 
@@ -31,12 +30,8 @@ class CKThreadLocalComponentScope {
 public:
   CKThreadLocalComponentScope(CKComponentScopeRoot *previousScopeRoot,
                               const CKComponentStateUpdateMap &updates,
-                              CKBuildTrigger trigger = CKBuildTriggerNone,
-                              BOOL shouldCollectTreeNodeCreationInformation = NO,
-                              BOOL alwaysBuildRenderTree = NO,
-                              RCComponentCoalescingMode coalescingMode = RCComponentCoalescingModeNone,
-                              BOOL enforceCKComponentSubclasses = YES,
-                              BOOL disableRenderToNilInCoalescedCompositeComponents = NO);
+                              CKBuildTrigger trigger = CKBuildTrigger::NewTree,
+                              BOOL merge = NO);
   ~CKThreadLocalComponentScope();
 
   /** Returns nullptr if there isn't a current scope */
@@ -46,14 +41,12 @@ public:
    Marks the current component scope as containing a component tree.
    This is used to ensure that during build component time we are initiating a component tree generation by calling `buildComponentTree:` on the root component.
    */
-  static void markCurrentScopeWithRenderComponentInTree() noexcept;
+  static void markCurrentScopeWithRenderComponentInTree();
 
-  CK::NonNull<CKComponentScopeRoot *> const newScopeRoot;
-  CKComponentScopeRoot *const previousScopeRoot;
+  CKComponentScopeRoot *const newScopeRoot;
   const CKComponentStateUpdateMap stateUpdates;
-  std::stack<CKComponentScopePair> stack;
+  std::stack<CKComponentScopeFramePair> stack;
   std::stack<std::vector<id<NSObject>>> keys;
-  std::stack<BOOL> ancestorHasStateUpdate;
 
   /** The current systrace listener. Can be nil if systrace is not enabled. */
   id<CKSystraceListener> systraceListener;
@@ -64,19 +57,8 @@ public:
   /** Component Allocations */
   NSUInteger componentAllocations;
 
-  const CKTreeNodeDirtyIds treeNodeDirtyIds;
-
-  const BOOL shouldCollectTreeNodeCreationInformation;
-
-  const RCComponentCoalescingMode coalescingMode;
-
-  const BOOL disableRenderToNilInCoalescedCompositeComponents;
-
-  const BOOL enforceCKComponentSubclasses;
-
-  void push(CKComponentScopePair scopePair, BOOL keysSupportEnabled = NO) noexcept;
-  void push(CKComponentScopePair scopePair, BOOL keysSupportEnabled, BOOL ancestorHasStateUpdate) noexcept;
-  void pop(BOOL keysSupportEnabled = NO, BOOL ancestorStateUpdateSupportEnabled = NO) noexcept;
+  /** Avoid duplicate links in the tree nodes for owner/parent based nodes */
+  BOOL mergeTreeNodesLinks;
 
 private:
   CKThreadLocalComponentScope *const previousScope;

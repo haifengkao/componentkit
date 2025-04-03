@@ -10,9 +10,6 @@
 
 #import "CKComponent+Yoga.h"
 
-#import <RenderCore/RCAssert.h>
-#import <ComponentKit/CKInternalHelpers.h>
-
 #import "CKComponentInternal.h"
 
 YGConfigRef ckYogaDefaultConfig()
@@ -34,7 +31,7 @@ CK_LINKABLE(CKComponent_Yoga)
   return NO;
 }
 
-- (RCComponentSize)nodeSize
+- (CKComponentSize)nodeSize
 {
   return [self size];
 }
@@ -44,7 +41,7 @@ CK_LINKABLE(CKComponent_Yoga)
   return YGNodeNewWithConfig(ckYogaDefaultConfig());
 }
 
-- (RCLayout)layoutFromYgNode:(YGNodeRef)layoutNode thatFits:(CKSizeRange)constrainedSize
+- (CKComponentLayout)layoutFromYgNode:(YGNodeRef)layoutNode thatFits:(CKSizeRange)constrainedSize
 {
   return {};
 }
@@ -61,41 +58,23 @@ CK_LINKABLE(CKCompositeComponent_Yoga)
 
 - (BOOL)isYogaBasedLayout
 {
-  if (id const yogaBasedChild = CKReturnIfResponds(self.child, @selector(isYogaBasedLayout))) {
-    return [yogaBasedChild isYogaBasedLayout];
-  }
-  return NO;
+  return self.child.isYogaBasedLayout;
 }
 
-- (RCComponentSize)nodeSize
+- (CKComponentSize)nodeSize
 {
-  RCCAssertWithCategory([self.child respondsToSelector:_cmd], ([NSString stringWithFormat:@"%@-%@", self.className, self.child.className]), @"%@ doesn't respond to %@", self.child.className, NSStringFromSelector(_cmd));
-  return [(id)self.child nodeSize];;
+  return [self.child nodeSize];
 }
 
 - (YGNodeRef)ygNode:(CKSizeRange)constrainedSize
 {
-  RCCAssertWithCategory([self.child respondsToSelector:_cmd], ([NSString stringWithFormat:@"%@-%@", self.className, self.child.className]), @"%@ doesn't respond to %@", self.child.className, NSStringFromSelector(_cmd));
-  return [(id)self.child ygNode:constrainedSize];
+  return [self.child ygNode:constrainedSize];
 }
 
-- (RCLayout)layoutFromYgNode:(YGNodeRef)layoutNode thatFits:(CKSizeRange)constrainedSize
+- (CKComponentLayout)layoutFromYgNode:(YGNodeRef)layoutNode thatFits:(CKSizeRange)constrainedSize
 {
-  RCCAssertWithCategory([self.child respondsToSelector:_cmd], ([NSString stringWithFormat:@"%@-%@", self.className, self.child.className]), @"%@ doesn't respond to %@", self.child.className, NSStringFromSelector(_cmd));
-  auto const l = [(id)self.child layoutFromYgNode:layoutNode thatFits:constrainedSize];
+  const CKComponentLayout l = [self.child layoutFromYgNode:layoutNode thatFits:constrainedSize];
   return {self, l.size, {{{0,0}, l}}};
-}
-
-@end
-
-CK_LINKABLE(CKOverlayLayoutComponent_Yoga)
-@implementation CKOverlayLayoutComponent (Yoga)
-
-- (RCComponentSize)nodeSize
-{
-  return CKReadGlobalConfig().useNodeSizeOverlayComponent
-  ? [(CKComponent *)[self childAtIndex:0] nodeSize]
-  : RCComponentSize();
 }
 
 @end

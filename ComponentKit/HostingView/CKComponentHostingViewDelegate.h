@@ -8,13 +8,14 @@
  *
  */
 
+#import <ComponentKit/CKDefines.h>
+
+#if CK_NOT_SWIFT
+
 #import <Foundation/Foundation.h>
 
 @class UIView;
 
-NS_ASSUME_NONNULL_BEGIN
-
-NS_SWIFT_NAME(ComponentHostingViewDelegate)
 @protocol CKComponentHostingViewDelegate <NSObject>
 @required
 /**
@@ -26,4 +27,4 @@ NS_SWIFT_NAME(ComponentHostingViewDelegate)
 - (void)componentHostingViewDidInvalidateSize:(UIView *)hostingView;
 @end
 
-NS_ASSUME_NONNULL_END
+#endif

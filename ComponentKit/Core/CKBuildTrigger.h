@@ -8,25 +8,15 @@
  *
  */
 
-#import <Foundation/Foundation.h>
 #import <ComponentKit/CKDefines.h>
 
 #if CK_NOT_SWIFT
 
 // Collection of events that trigger a new component generation.
-typedef NS_OPTIONS(NSInteger, CKBuildTrigger) {
-  CKBuildTriggerNone = 0,
-  CKBuildTriggerPropsUpdate = 1 << 0,
-  CKBuildTriggerStateUpdate = 1 << 1,
-  CKBuildTriggerEnvironmentUpdate = 1 << 2,
-};
-
-// Collection of reasons for a component tree reflow.
-typedef NS_OPTIONS(NSInteger, CKReflowTrigger) {
-  CKReflowTriggerNone = 0,
-  CKReflowTriggerReload = 1 << 0,
-  CKReflowTriggerUIContext = 1 << 1,
-  CKReflowTriggerAccessibility = 1 << 2,
+enum class CKBuildTrigger {
+  NewTree,
+  StateUpdate,
+  PropsUpdate,
 };
 
 #endif

@@ -8,12 +8,12 @@
 *
 */
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 
 #pragma once
 
-#define CKFatal(description, ...) RCAssert(NO, (description), ##__VA_ARGS__)
-#define CKCFatal(description, ...) RCCAssert(NO, (description), ##__VA_ARGS__)
+#define CKFatal(description, ...) CKAssert(NO, (description), ##__VA_ARGS__)
+#define CKCFatal(description, ...) CKCAssert(NO, (description), ##__VA_ARGS__)
 
 #define CKFatalWithCategory(category, description, ...) \
 do { \

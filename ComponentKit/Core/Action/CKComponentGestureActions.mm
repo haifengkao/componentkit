@@ -16,7 +16,6 @@
 
 #import "CKFatal.h"
 #import "CKComponent+UIView.h"
-#import "CKComponentGestureActionsInternal.h"
 
 #import <ComponentKit/CKInternalHelpers.h>
 #import <ComponentKit/CKComponentInternal.h>
@@ -36,12 +35,10 @@ CKComponentViewAttributeValue CKComponentLongPressGestureAttribute(CKAction<UIGe
   return CKComponentGestureAttribute([UILongPressGestureRecognizer class], nullptr, action);
 }
 
-CKComponentViewAttributeValue CKComponentGestureAttributeInternal(Class gestureRecognizerClass,
-                                                                  CKComponentGestureRecognizerSetupFunction setupFunction,
-                                                                  CKAction<UIGestureRecognizer *> action,
-                                                                  const std::string& identifierSuffix,
-                                                                  void (^applicatorBlock)(UIView *, UIGestureRecognizer *),
-                                                                  void (^unapplicatorBlock)(UIGestureRecognizer *))
+CKComponentViewAttributeValue CKComponentGestureAttribute(Class gestureRecognizerClass,
+                                                          CKComponentGestureRecognizerSetupFunction setupFunction,
+                                                          CKAction<UIGestureRecognizer *> action,
+                                                          CKComponentForwardedSelectors delegateSelectors)
 {
   if (!action || gestureRecognizerClass == Nil) {
     return {
@@ -61,17 +58,23 @@ CKComponentViewAttributeValue CKComponentGestureAttributeInternal(Class gestureR
       std::string(class_getName(gestureRecognizerClass))
       + "-" + CKStringFromPointer((const void *)setupFunction)
       + "-" + action.identifier()
-      + identifierSuffix,
+      + CKIdentifierFromDelegateForwarderSelectors(delegateSelectors),
       ^(UIView *view, id value){
-        RCCAssertNil(CKRecognizerForAction(view, blockAction),
+        CKCAssertNil(CKRecognizerForAction(view, blockAction),
                      @"Registered two gesture recognizers with the same action %@", NSStringFromSelector(blockAction.selector()));
         UIGestureRecognizer *gestureRecognizer = reusePool->get();
         CKSetComponentActionForGestureRecognizer(gestureRecognizer, blockAction);
 
-        if (applicatorBlock != nil) {
-          applicatorBlock(view, gestureRecognizer);
+        // Setup delegate proxying if applicable
+        if (delegateSelectors.size() > 0) {
+          CKCAssertNil(gestureRecognizer.delegate, @"Doesn't make sense to set the gesture delegate and provide selectors to proxy");
+          CKComponentDelegateForwarder *proxy = [CKComponentDelegateForwarder newWithSelectors:delegateSelectors];
+          proxy.view = view;
+          gestureRecognizer.delegate = (id<UIGestureRecognizerDelegate>)proxy;
+          // This will retain it
+          CKSetDelegateProxyForObject(gestureRecognizer, proxy);
         }
-
+        
         @try {
           [view addGestureRecognizer:gestureRecognizer];
         }
@@ -81,7 +84,7 @@ CKComponentViewAttributeValue CKComponentGestureAttributeInternal(Class gestureR
           if (mountedComponent) {
             fatalMsg = [mountedComponent backtraceStackDescription];
           }
-          CKCFatalWithCategory(mountedComponent.className, @"%@ while mounting \n%@", ex, fatalMsg);
+          CKCFatalWithCategory(mountedComponent.class, @"%@ while mounting \n%@", ex, fatalMsg);
         }
       },
       ^(UIView *view, id value){
@@ -93,45 +96,16 @@ CKComponentViewAttributeValue CKComponentGestureAttributeInternal(Class gestureR
         [view removeGestureRecognizer:recognizer];
         CKUnsetComponentActionForGestureRecognizer(recognizer);
 
-        if (unapplicatorBlock != nil) {
-          unapplicatorBlock(recognizer);
+        // Tear down delegate proxying if applicable
+        if (delegateSelectors.size() > 0) {
+          CKComponentDelegateForwarder *proxy = CKDelegateProxyForObject(recognizer);
+          proxy.view = nil;
+          recognizer.delegate = nil;
+          CKSetDelegateProxyForObject(recognizer, nil);
         }
-
         reusePool->recycle(recognizer);
       }
     },
     @YES // Bogus value, we don't use it.
   };
-}
-
-CKComponentViewAttributeValue CKComponentGestureAttribute(Class gestureRecognizerClass,
-                                                          CKComponentGestureRecognizerSetupFunction setupFunction,
-                                                          CKAction<UIGestureRecognizer *> action,
-                                                          CKComponentForwardedSelectors delegateSelectors) {
-  return CKComponentGestureAttributeInternal(
-    gestureRecognizerClass,
-    setupFunction,
-    action,
-    CKIdentifierFromDelegateForwarderSelectors(delegateSelectors),
-    ^(UIView *view, UIGestureRecognizer *recognizer) {
-      // Setup delegate proxying if applicable
-      if (delegateSelectors.size() > 0) {
-        RCCAssertNil(recognizer.delegate, @"Doesn't make sense to set the gesture delegate and provide selectors to proxy");
-        CKComponentDelegateForwarder *proxy = [CKComponentDelegateForwarder newWithSelectors:delegateSelectors];
-        proxy.view = view;
-        recognizer.delegate = (id<UIGestureRecognizerDelegate>)proxy;
-        // This will retain it
-        CKSetDelegateProxyForObject(recognizer, proxy);
-      }
-    },
-    ^(UIGestureRecognizer *recognizer){
-      // Tear down delegate proxying if applicable
-      if (delegateSelectors.size() > 0) {
-        CKComponentDelegateForwarder *proxy = CKDelegateProxyForObject(recognizer);
-        proxy.view = nil;
-        recognizer.delegate = nil;
-        CKSetDelegateProxyForObject(recognizer, nil);
-      }
-    }
-  );
 }

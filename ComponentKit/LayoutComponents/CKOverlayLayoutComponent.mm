@@ -10,7 +10,7 @@
 
 #import "CKOverlayLayoutComponent.h"
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKMacros.h>
 #import <ComponentKit/CKComponentInternal.h>
 #import <ComponentKit/CKComponentPerfScope.h>
@@ -23,41 +23,46 @@
   CKComponent *_component;
 }
 
-- (instancetype)initWithComponent:(CKComponent *)component overlay:(CKComponent *)overlay
++ (instancetype)newWithComponent:(CKComponent *)component
+                         overlay:(CKComponent *)overlay
 {
-  CKComponentPerfScope perfScope(self.class);
-  if (self = [super initWithView:{} size:{}]) {
-    self->_overlay = overlay;
-    self->_component = component;
+  if (component == nil) {
+    return nil;
   }
-  return self;
+  CKComponentPerfScope perfScope(self);
+  CKOverlayLayoutComponent *c = [super newWithView:{} size:{}];
+  if (c) {
+    c->_overlay = overlay;
+    c->_component = component;
+  }
+  return c;
 }
 
 #pragma mark - CKMountable
 
 - (unsigned int)numberOfChildren
 {
-  return RCIterable::numberOfChildren(_component, _overlay);
+  return CKIterable::numberOfChildren(_component, _overlay);
 }
 
 - (id<CKMountable>)childAtIndex:(unsigned int)index
 {
-  return RCIterable::childAtIndex(self, index, _component, _overlay);
+  return CKIterable::childAtIndex(self, index, _component, _overlay);
 }
 
 /**
  First layout the contents, then fit the overlay on top of it.
  */
-- (RCLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
-                          restrictedToSize:(const RCComponentSize &)size
+- (CKComponentLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
+                          restrictedToSize:(const CKComponentSize &)size
                       relativeToParentSize:(CGSize)parentSize
 {
-  RCAssert(size == RCComponentSize(),
+  CKAssert(size == CKComponentSize(),
            @"CKOverlayLayoutComponent only passes size {} to the super class initializer, but received size %@ "
            "(component=%@, overlay=%@)", size.description(), _component, _overlay);
 
   // This variable needs to be mutable so we can move from it.
-  /* const */ RCLayout contentsLayout = [_component layoutThatFits:constrainedSize parentSize:parentSize];
+  /* const */ CKComponentLayout contentsLayout = [_component layoutThatFits:constrainedSize parentSize:parentSize];
 
   const auto contentsLayoutSize = contentsLayout.size;
 
@@ -65,11 +70,11 @@
     self,
     contentsLayoutSize,
     _overlay
-    ? std::vector<RCLayoutChild> {
+    ? std::vector<CKComponentLayoutChild> {
       {{0,0}, std::move(contentsLayout)},
       {{0,0}, [_overlay layoutThatFits:{contentsLayoutSize, contentsLayoutSize} parentSize:contentsLayoutSize]},
     }
-    : std::vector<RCLayoutChild> {
+    : std::vector<CKComponentLayoutChild> {
       {{0,0}, std::move(contentsLayout)},
     }
   };

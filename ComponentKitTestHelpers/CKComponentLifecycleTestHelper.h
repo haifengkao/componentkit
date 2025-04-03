@@ -10,17 +10,18 @@
 
 #import <ComponentKit/CKComponentBoundsAnimation.h>
 #import <ComponentKit/CKComponentLayout.h>
-#import <RenderCore/RCDimension.h>
+#import <ComponentKit/CKDimension.h>
 
 @class CKComponentScopeRoot;
 
+@protocol CKComponentProvider;
 @protocol CKComponentSizeRangeProviding;
 
 struct CKComponentLifecycleTestHelperState {
   id model;
   id<NSObject> context;
   CKSizeRange constrainedSize;
-  RCLayout componentLayout;
+  CKComponentLayout componentLayout;
   CKComponentScopeRoot *scopeRoot;
   CKComponentBoundsAnimation boundsAnimation;
 };

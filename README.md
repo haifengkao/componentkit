@@ -1,6 +1,5 @@
 # [![ComponentKit](http://componentkit.org/img/componentkit_hero_logo.png)](http://componentkit.org/)
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![Build Status](https://travis-ci.org/facebook/componentkit.svg)](https://travis-ci.org/facebook/componentkit)
 
 ComponentKit is a view framework for iOS that is heavily inspired by React. It takes a functional, declarative approach to building UI. It was built to power Facebook's News Feed and is now used throughout the Facebook iOS app.
@@ -10,7 +9,7 @@ ComponentKit is a view framework for iOS that is heavily inspired by React. It t
 ComponentKit is available to install via [Carthage](https://github.com/Carthage/Carthage). To get started add the following to your [Cartfile](https://github.com/Carthage/Carthage/blob/master/Documentation/Artifacts.md#cartfile):
 
 ```
-github "facebook/ComponentKit" ~> 0.30
+github "facebook/ComponentKit" ~> 0.31
 ```
 
 ### Opening the Xcode projects

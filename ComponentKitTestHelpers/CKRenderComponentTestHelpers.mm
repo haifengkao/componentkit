@@ -16,7 +16,7 @@
 #import <ComponentKit/CKComponentSubclass.h>
 #import <ComponentKit/CKComponentScopeRoot.h>
 #import <ComponentKit/CKRootTreeNode.h>
-#import <ComponentKit/CKTreeNode.h>
+#import <ComponentKit/CKTreeNodeProtocol.h>
 
 @implementation CKTestRenderComponent
 {
@@ -106,8 +106,8 @@
   return nil;
 }
 
-- (void)buildComponentTree:(CKTreeNode *)parent
-            previousParent:(CKTreeNode *_Nullable)previousParent
+- (void)buildComponentTree:(id<CKTreeNodeWithChildrenProtocol>)parent
+            previousParent:(id<CKTreeNodeWithChildrenProtocol> _Nullable)previousParent
                     params:(const CKBuildComponentTreeParams &)params
       parentHasStateUpdate:(BOOL)parentHasStateUpdate
 {
@@ -115,8 +115,8 @@
   _parentHasStateUpdate = parentHasStateUpdate;
 }
 
-- (RCLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
-                          restrictedToSize:(const RCComponentSize &)size
+- (CKComponentLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
+                          restrictedToSize:(const CKComponentSize &)size
                       relativeToParentSize:(CGSize)parentSize
 {
   _computeCalledCounter++;
@@ -144,7 +144,7 @@
   return @1;
 }
 
-- (CKComponent *)childComponent
+- (CKComponent *)child
 {
   return _child;
 }
@@ -176,7 +176,7 @@
 }
 + (instancetype)newWithChildren:(std::vector<CKComponent *>)children
 {
-  auto const c = [super new];
+  auto const c = [super newWithView:{} size:{}];
   if (c) {
     c->_children = children;
   }
@@ -191,7 +191,7 @@
   if (index < _children.size()) {
     return _children[index];
   }
-  RCFailAssertWithCategory([self class], @"Index %u is out of bounds %lu", index, _children.size());
+  CKFailAssertWithCategory([self class], @"Index %u is out of bounds %lu", index, _children.size());
   return nil;
 }
 @end
@@ -200,29 +200,10 @@
 @end
 
 @implementation CKCompositeComponentWithScope
-{
-  CKComponent *_child;
-}
 
 + (instancetype)newWithComponentProvider:(CKComponent *(^)())componentProvider
 {
-  return [self newWithComponentProvider:componentProvider scopeIdentifier:nil];
+  CKComponentScope scope(self);
+  return [super newWithComponent:componentProvider()];
 }
-
-+ (instancetype)newWithComponentProvider:(CKComponent *(^)())componentProvider scopeIdentifier:(id)scopeIdentifier
-{
-  CKComponentScope scope(self, scopeIdentifier);
-  auto const child = componentProvider();
-  auto const c = [super newWithComponent:child];
-  if (c) {
-    c->_child = child;
-  }
-  return c;
-}
-
-- (CKComponent *)childComponent
-{
-  return _child;
-}
-
 @end

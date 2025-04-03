@@ -25,7 +25,6 @@ struct CKTransitions {
 
   /** Returns true if no animations are present. */
   auto areEmpty() const -> bool;
-  ~CKTransitions();
 };
 
 /**

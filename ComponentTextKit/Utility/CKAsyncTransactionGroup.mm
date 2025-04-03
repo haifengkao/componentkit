@@ -10,7 +10,7 @@
 
 #import "CKAsyncTransactionGroup.h"
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 
 #import "CKAsyncTransaction.h"
 #import "CKAsyncTransactionContainer+Private.h"
@@ -23,7 +23,7 @@ static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observ
 
 + (CKAsyncTransactionGroup *)mainTransactionGroup
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   static CKAsyncTransactionGroup *mainTransactionGroup;
 
   if (mainTransactionGroup == nil) {
@@ -35,9 +35,9 @@ static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observ
 
 + (void)registerTransactionGroupAsMainRunloopObserver:(CKAsyncTransactionGroup *)transactionGroup
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   static CFRunLoopObserverRef observer;
-  RCAssert(observer == NULL, @"A CKAsyncTransactionGroup should not be registered on the main runloop twice");
+  CKAssert(observer == NULL, @"A CKAsyncTransactionGroup should not be registered on the main runloop twice");
   // defer the commit of the transaction so we can add more during the current runloop iteration
   CFRunLoopRef runLoop = CFRunLoopGetCurrent();
   CFOptionFlags activities = (kCFRunLoopBeforeWaiting | // before the run loop starts sleeping
@@ -72,8 +72,8 @@ static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observ
 
 - (void)addTransactionContainer:(CALayer *)containerLayer
 {
-  RCAssertMainThread();
-  RCAssertNotNil(containerLayer, @"Cannot add a nil layer to the group");
+  CKAssertMainThread();
+  CKAssertNotNil(containerLayer, @"Cannot add a nil layer to the group");
   [_containerLayers addObject:containerLayer];
 }
 
@@ -81,7 +81,7 @@ static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observ
 
 - (void)commit
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
 
   if ([_containerLayers count]) {
     NSSet *containerLayersToCommit = [_containerLayers copy];
@@ -101,7 +101,7 @@ static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observ
 
 static void _transactionGroupRunLoopObserverCallback(CFRunLoopObserverRef observer, CFRunLoopActivity activity, void *info)
 {
-  RCCAssertMainThread();
+  CKCAssertMainThread();
   CKAsyncTransactionGroup *group = (__bridge CKAsyncTransactionGroup *)info;
   [group commit];
 }

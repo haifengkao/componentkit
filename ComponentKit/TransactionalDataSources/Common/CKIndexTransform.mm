@@ -4,11 +4,9 @@
 
 #import <algorithm>
 
-#import <ComponentKit/CKCollection.h>
-
 auto CK::IndexTransform::applyOffsetToIndex(NSInteger index) const -> NSInteger
 {
-  const auto maybeRangeOffsetForIdx = CK::find_if(_rangeOffsets, [=](const RangeOffset &r) {
+  const auto maybeRangeOffsetForIdx = std::find_if(_rangeOffsets.begin(), _rangeOffsets.end(), [=](auto r) {
     return NSLocationInRange(index, r.range);
   });
   if (maybeRangeOffsetForIdx != _rangeOffsets.end() && (*maybeRangeOffsetForIdx).offset != NSNotFound) {

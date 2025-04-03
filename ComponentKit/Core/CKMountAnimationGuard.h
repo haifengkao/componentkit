@@ -9,34 +9,47 @@
  */
 
 #import <QuartzCore/QuartzCore.h>
+#import <ComponentKit/CKDefines.h>
+
+#if CK_NOT_SWIFT
 
 /** Used by CKComponent internally to block animations when configuring a new or recycled view */
-
 class CKMountAnimationGuard {
 public:
-  static BOOL blockAnimationsIfNeeded(id<CKMountable> oldComponent, id<CKMountable> newComponent,
-                                      const CK::Component::MountContext &ctx,
-                                      const CKComponentViewConfiguration &viewConfig) noexcept
+  CKMountAnimationGuard(CKComponent *oldComponent, CKComponent *newComponent, const CK::Component::MountContext &ctx, const CKComponentViewConfiguration &viewConfig)
+  : didBlockAnimations(blockAnimationsIfNeeded(oldComponent, newComponent, ctx, viewConfig)) {}
+
+  ~CKMountAnimationGuard()
   {
+    if (didBlockAnimations) {
+      [CATransaction setDisableActions:NO];
+    }
+  }
+
+  const BOOL didBlockAnimations;
+
+private:
+  CKMountAnimationGuard(const CKMountAnimationGuard&) = delete;
+  CKMountAnimationGuard &operator=(const CKMountAnimationGuard&) = delete;
+
+  static BOOL blockAnimationsIfNeeded(CKComponent *oldComponent, CKComponent *newComponent,
+                                      const CK::Component::MountContext &ctx,
+                                      const CKComponentViewConfiguration &viewConfig)
+  {
+    if ([CATransaction disableActions]) {
+      return NO; // Already blocked
+    }
     if (shouldBlockAnimations(oldComponent, newComponent, ctx, viewConfig)) {
       [CATransaction setDisableActions:YES];
       return YES;
     }
     return NO;
   }
-  
-  static void unblockAnimation() {
-    [CATransaction setDisableActions:NO];
-  }
-  
-private:
-  static BOOL shouldBlockAnimations(id<CKMountable> oldComponent, id<CKMountable> newComponent,
+
+  static BOOL shouldBlockAnimations(CKComponent *oldComponent, CKComponent *newComponent,
                                     const CK::Component::MountContext &ctx,
-                                    const CKComponentViewConfiguration &viewConfig) noexcept
+                                    const CKComponentViewConfiguration &viewConfig)
   {
-    if ([CATransaction disableActions]) {
-      return NO; // Already blocked
-    }
     // If the context explicitly tells us to block animations, do it.
     if (ctx.shouldBlockAnimations) {
       return YES;
@@ -63,3 +76,5 @@ private:
     return NO;
   }
 };
+
+#endif

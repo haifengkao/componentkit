@@ -12,7 +12,7 @@
 
 #import <array>
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKInternalHelpers.h>
 
 #import "CKComponentSubclass.h"
@@ -25,10 +25,10 @@ struct CKStateConfiguration {
 
   bool operator==(const CKStateConfiguration &other) const
   {
-    return RCObjectIsEqual(title, other.title)
-    && RCObjectIsEqual(titleColor, other.titleColor)
-    && RCObjectIsEqual(image, other.image)
-    && RCObjectIsEqual(backgroundImage, other.backgroundImage);
+    return CKObjectIsEqual(title, other.title)
+    && CKObjectIsEqual(titleColor, other.titleColor)
+    && CKObjectIsEqual(image, other.image)
+    && CKObjectIsEqual(backgroundImage, other.backgroundImage);
   }
 };
 
@@ -53,8 +53,8 @@ typedef std::array<CKStateConfiguration, 8> CKStateConfigurationArray;
   CGSize _intrinsicSize;
 }
 
-- (instancetype)initWithAction:(const CKAction<UIEvent *>)action
-                       options:(const CKButtonComponentOptions &)options
++ (instancetype)newWithAction:(const CKAction<UIEvent *>)action
+                      options:(const CKButtonComponentOptions &)options
 {
   static const CKComponentViewAttribute titleFontAttribute = {"CKButtonComponent.titleFont", ^(UIButton *button, id value) {
     button.titleLabel.font = value;
@@ -97,16 +97,16 @@ typedef std::array<CKStateConfiguration, 8> CKStateConfigurationArray;
       enumerateAllStates(^(UIControlState state) {
         const CKStateConfiguration &oldStateConfig = oldConfig->_configurations[indexForState(state)];
         const CKStateConfiguration &newStateConfig = newConfig->_configurations[indexForState(state)];
-        if (!RCObjectIsEqual(oldStateConfig.title, newStateConfig.title)) {
+        if (!CKObjectIsEqual(oldStateConfig.title, newStateConfig.title)) {
           [view setTitle:newStateConfig.title forState:state];
         }
-        if (!RCObjectIsEqual(oldStateConfig.titleColor, newStateConfig.titleColor)) {
+        if (!CKObjectIsEqual(oldStateConfig.titleColor, newStateConfig.titleColor)) {
           [view setTitleColor:newStateConfig.titleColor forState:state];
         }
-        if (!RCObjectIsEqual(oldStateConfig.image, newStateConfig.image)) {
+        if (!CKObjectIsEqual(oldStateConfig.image, newStateConfig.image)) {
           [view setImage:newStateConfig.image forState:state];
         }
-        if (!RCObjectIsEqual(oldStateConfig.backgroundImage, newStateConfig.backgroundImage)) {
+        if (!CKObjectIsEqual(oldStateConfig.backgroundImage, newStateConfig.backgroundImage)) {
           [view setBackgroundImage:newStateConfig.backgroundImage forState:state];
         }
       });
@@ -147,41 +147,41 @@ typedef std::array<CKStateConfiguration, 8> CKStateConfigurationArray;
     CKComponentActionAttribute(action, UIControlEventTouchUpInside),
   });
 
-  RCAccessibilityContext accessibilityContext(options.accessibilityContext);
-  if (!accessibilityContext.extra[CKAccessibilityExtraActionKey]) {
-    NSMutableDictionary *extra = [accessibilityContext.extra mutableCopy] ?: [NSMutableDictionary new];
-    extra[CKAccessibilityExtraActionKey] = CKAccessibilityExtraActionValue(CKAction<>::demotedFrom(action, static_cast<UIEvent*>(nil)));
-    accessibilityContext.extra = extra;
+  CKComponentAccessibilityContext accessibilityContext(options.accessibilityContext);
+  if (!accessibilityContext.accessibilityComponentAction) {
+    accessibilityContext.accessibilityComponentAction = options.enabled
+    ? CKAction<>::demotedFrom(action, static_cast<UIEvent*>(nil))
+    : nullptr;
   }
 
-  self = [super initWithView:{
-    [CKButtonWithExtendedTapArea class],
-    std::move(attributes),
-    std::move(accessibilityContext)
-  } size:options.size];
+  const auto b = [super
+                  newWithView:{
+                    [CKButtonWithExtendedTapArea class],
+                    std::move(attributes),
+                    std::move(accessibilityContext)
+                  }
+                  size:options.size];
 
-  if (self != nil) {
-  #if !TARGET_OS_TV
-    const UIControlState state = (options.selected ? UIControlStateSelected : UIControlStateNormal)
-    | (options.enabled ? UIControlStateNormal : UIControlStateDisabled);
-    _intrinsicSize = intrinsicSize(valueForState(options.titles.getMap(), state),
-                                   options.numberOfLines,
-                                   options.titleFont,
-                                   valueForState(options.images.getMap(), state),
-                                   valueForState(options.backgroundImages.getMap(), state),
-                                   contentEdgeInsets,
-                                   titleEdgeInsets,
-                                   imageEdgeInsets);
+#if !TARGET_OS_TV
+  const UIControlState state = (options.selected ? UIControlStateSelected : UIControlStateNormal)
+  | (options.enabled ? UIControlStateNormal : UIControlStateDisabled);
+  b->_intrinsicSize = intrinsicSize(valueForState(options.titles.getMap(), state),
+                                    options.numberOfLines,
+                                    options.titleFont,
+                                    valueForState(options.images.getMap(), state),
+                                    valueForState(options.backgroundImages.getMap(), state),
+                                    contentEdgeInsets,
+                                    titleEdgeInsets,
+                                    imageEdgeInsets);
 
-  #else
-    // `labelFontSize` is unavailable on tvOS
-    _intrinsicSize = {INFINITY, INFINITY};
-  #endif // !TARGET_OS_TV
-  }
-  return self;
+#else
+  // `labelFontSize` is unavailable on tvOS
+  b->_intrinsicSize = {INFINITY, INFINITY};
+#endif // !TARGET_OS_TV
+  return b;
 }
 
-- (RCLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
+- (CKComponentLayout)computeLayoutThatFits:(CKSizeRange)constrainedSize
 {
   return {self, constrainedSize.clamp(_intrinsicSize)};
 }
@@ -191,19 +191,19 @@ static CKButtonComponentConfiguration *configurationFromOptions(const CKButtonCo
   CKButtonComponentConfiguration *const config = [[CKButtonComponentConfiguration alloc] init];
   CKStateConfigurationArray &configs = config->_configurations;
   NSUInteger hash = 0;
-  for (const auto& it : options.titles.getMap()) {
+  for (auto it : options.titles.getMap()) {
     configs[indexForState(it.first)].title = it.second;
     hash ^= (it.first ^ [it.second hash]);
   }
-  for (const auto& it : options.titleColors.getMap()) {
+  for (auto it : options.titleColors.getMap()) {
     configs[indexForState(it.first)].titleColor = it.second;
     hash ^= (it.first ^ [it.second hash]);
   }
-  for (const auto& it : options.images.getMap()) {
+  for (auto it : options.images.getMap()) {
     configs[indexForState(it.first)].image = it.second;
     hash ^= (it.first ^ [it.second hash]);
   }
-  for (const auto& it : options.backgroundImages.getMap()) {
+  for (auto it : options.backgroundImages.getMap()) {
     configs[indexForState(it.first)].backgroundImage = it.second;
     hash ^= (it.first ^ [it.second hash]);
   }
@@ -234,7 +234,7 @@ static CGSize intrinsicSize(NSString *title, NSInteger numberOfLines, UIFont *ti
   UIFont *const font = titleFont ?: [UIFont systemFontOfSize:[UIFont labelFontSize]];
   const CGSize titleSize = [title sizeWithAttributes:@{NSFontAttributeName: font}];
 
-  RCCWarn(numberOfLines > 0, @"Setting numberOfLines to 0 or less can create unpredictible behaviour between displaying the label and the buttons size. UIButton's titleLabel property isn't bound to the bounds of it's housing UIButton, which can lead to the text displaying incorrectly.");
+  CKCWarn(numberOfLines > 0, @"Setting numberOfLines to 0 or less can create unpredictible behaviour between displaying the label and the buttons size. UIButton's titleLabel property isn't bound to the bounds of it's housing UIButton, which can lead to the text displaying incorrectly.");
 
   const CGFloat labelHeight = (numberOfLines > 1)
                             ? ceilf(font.lineHeight) * CGFloat(numberOfLines)
@@ -313,3 +313,5 @@ static inline NSUInteger indexForState(UIControlState state)
 }
 
 @end
+
+

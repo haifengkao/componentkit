@@ -18,16 +18,15 @@
 #import <ComponentKit/CKComponentInternal.h>
 #import <ComponentKit/CKCompositeComponent.h>
 
-#import "CKComponentTestCase.h"
 
 @interface CKDetectScrollComponent : CKCompositeComponent <UIScrollViewDelegate>
 @property (nonatomic, assign) BOOL receivedScroll;
 @end
 
-@interface CKComponentGestureActionsTests : CKComponentTestCase
+@interface CKComponentGestureActionsTests : XCTestCase
 @end
 
-@interface CKComponentDelegateAttributeTests : CKComponentTestCase
+@interface CKComponentDelegateAttributeTests : XCTestCase
 @end
 
 @implementation CKComponentDelegateAttributeTests
@@ -72,10 +71,10 @@ static UIScrollView *findScrollView(UIView *v)
                         .build()];
 
 
-  RCLayout layout = [hierarchy layoutThatFits:{} parentSize:{NAN, NAN}];
+  CKComponentLayout layout = [hierarchy layoutThatFits:{} parentSize:{NAN, NAN}];
 
   UIView *container = [UIView new];
-  NSSet *mounted = CKMountComponentLayout(layout, container, nil, nil);
+  NSSet *mounted = CKMountComponentLayout(layout, container, nil, nil).mountedComponents;
 
   XCTAssertFalse(hierarchy.receivedScroll, @"Should not have triggered yet");
 
@@ -121,10 +120,10 @@ static UIScrollView *findScrollView(UIView *v)
                         .build()];
 
 
-  RCLayout layout = [hierarchy layoutThatFits:{} parentSize:{NAN, NAN}];
+  CKComponentLayout layout = [hierarchy layoutThatFits:{} parentSize:{NAN, NAN}];
 
   UIView *container = [UIView new];
-  NSSet *mounted = CKMountComponentLayout(layout, container, nil, nil);
+  NSSet *mounted = CKMountComponentLayout(layout, container, nil, nil).mountedComponents;
 
   XCTAssertFalse(hierarchy.receivedScroll, @"Should not have triggered yet");
 

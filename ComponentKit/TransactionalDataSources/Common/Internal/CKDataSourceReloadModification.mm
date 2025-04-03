@@ -21,6 +21,7 @@
 #import "CKComponentControllerHelper.h"
 #import "CKComponentLayout.h"
 #import "CKComponentProvider.h"
+#import "CKComponentScopeFrame.h"
 #import "CKComponentScopeRoot.h"
 #import "CKDataSourceModificationHelper.h"
 
@@ -29,14 +30,12 @@ using namespace CKComponentControllerHelper;
 @implementation CKDataSourceReloadModification
 {
   NSDictionary *_userInfo;
-  std::shared_ptr<CKTreeLayoutCache> _treeLayoutCache;
 }
 
-- (instancetype)initWithUserInfo:(NSDictionary *)userInfo treeLayoutCache:(std::shared_ptr<CKTreeLayoutCache>)treeLayoutCache
+- (instancetype)initWithUserInfo:(NSDictionary *)userInfo
 {
   if (self = [super init]) {
     _userInfo = [userInfo copy];
-    _treeLayoutCache = std::move(treeLayoutCache);
   }
   return self;
 }
@@ -56,17 +55,16 @@ using namespace CKComponentControllerHelper;
     [items enumerateObjectsUsingBlock:^(CKDataSourceItem *item, NSUInteger itemIdx, BOOL *itemStop) {
       [updatedIndexPaths addObject:[NSIndexPath indexPathForItem:itemIdx inSection:sectionIdx]];
       // On reload, we would like avoid component reuse - by passing `enableComponentReuseOptimizations = NO`, we make sure that all the components will be recreated.
-      const auto layoutCache = _treeLayoutCache ? _treeLayoutCache->find([item.scopeRoot globalIdentifier]) : nullptr;
-      CKDataSourceItem *const newItem = CKBuildDataSourceItem([item scopeRoot], {}, sizeRange, configuration, [item model], context, layoutCache, CKReflowTriggerReload);
+      CKDataSourceItem *const newItem = CKBuildDataSourceItem([item scopeRoot], {}, sizeRange, configuration, [item model], context, NO);
       [newItems addObject:newItem];
       for (auto componentController : addedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                   item.scopeRoot,
-                                                                                                   &CKComponentControllerInitializeEventPredicate)) {
+                                                                                             item.scopeRoot,
+                                                                                             &CKComponentControllerInitializeEventPredicate)) {
         [addedComponentControllers addObject:componentController];
       }
       for (auto componentController : removedControllersFromPreviousScopeRootMatchingPredicate(newItem.scopeRoot,
-                                                                                                     item.scopeRoot,
-                                                                                                     &CKComponentControllerInvalidateEventPredicate)) {
+                                                                                               item.scopeRoot,
+                                                                                               &CKComponentControllerInvalidateEventPredicate)) {
         [invalidComponentControllers addObject:componentController];
       }
      }];

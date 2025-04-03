@@ -16,7 +16,7 @@
 
 #import <UIKit/UIKit.h>
 
-#import <ComponentTextKit/CKTextKitAttributes.h>
+#import <ComponentKit/CKTextKitAttributes.h>
 
 @class CKTextKitContext;
 @class CKTextKitShadower;

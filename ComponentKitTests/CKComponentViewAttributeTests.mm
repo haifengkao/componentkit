@@ -16,9 +16,7 @@
 #import <ComponentKit/CKComponent.h>
 #import <ComponentKit/CKComponentSubclass.h>
 
-#import "CKComponentTestCase.h"
-
-@interface CKComponentViewAttributeTests : CKComponentTestCase
+@interface CKComponentViewAttributeTests : XCTestCase
 @end
 
 @interface CKSetterCounterView : UIView

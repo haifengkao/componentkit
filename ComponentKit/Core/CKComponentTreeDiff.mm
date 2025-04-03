@@ -33,10 +33,6 @@ namespace CK {
     return description;
   }
 
-auto ComponentTreeDiff::isEmpty() const -> bool {
-  return appearedComponents.empty() && disappearedComponents.empty() && updatedComponents.empty();
-}
-
   auto operator==(const ComponentTreeDiff &lhs, const ComponentTreeDiff &rhs) -> bool
   {
     return lhs.appearedComponents == rhs.appearedComponents && lhs.updatedComponents == rhs.updatedComponents && lhs.disappearedComponents == rhs.disappearedComponents;

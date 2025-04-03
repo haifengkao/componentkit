@@ -14,7 +14,7 @@
 
 #import <Foundation/Foundation.h>
 
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKComponentContext.h>
 
 #if CK_ASSERTIONS_ENABLED
@@ -40,28 +40,29 @@ typedef NS_ENUM(NSUInteger, CKComponentCreationValidationSource) {
 
 @end
 
+BOOL CKIsRunningInTest();
 
 #define CKValidateComponentCreation() \
-  do { \
-    RCAssertWithCategory(CKComponentContext<CKComponentCreationValidationContext>::get() != nil, \
+  if (!CKIsRunningInTest()) { \
+    CKAssertWithCategory(CKComponentContext<CKComponentCreationValidationContext>::get() != nil, \
                          NSStringFromClass(self.class), \
                          @"Component should not be created outside of component provider function."); \
-  } while (0)
+  }
 #define CKValidateRenderComponentCreation() \
-  do { \
+  if (!CKIsRunningInTest()) { \
     const auto validationContext = CKComponentContext<CKComponentCreationValidationContext>::get(); \
     if (!validationContext) { \
-      RCFailAssertWithCategory(NSStringFromClass(self.class), \
+      CKFailAssertWithCategory(NSStringFromClass(self.class), \
                                @"Component should not be created outside of component provider function."); \
     } else {\
-      RCAssertWithCategory(validationContext.source != CKComponentCreationValidationSourceLayout, \
+      CKAssertWithCategory(validationContext.source != CKComponentCreationValidationSourceLayout, \
                            NSStringFromClass(self.class), \
                            @"Render component shouldn't be created during component layout"); \
     } \
-  } while (0)
+  }
 #else
-#define CKValidateComponentCreation() do {} while (0)
-#define CKValidateRenderComponentCreation() do {} while (0)
+#define CKValidateComponentCreation()
+#define CKValidateRenderComponentCreation()
 #endif
 
 #endif

@@ -39,7 +39,7 @@ BOOL CKComponentDidPrepareLayoutForComponentToControllerPredicate(id<CKComponent
 /**
  Iterates over the components that their controller overrides 'didPrepareLayout:ForComponent:' and send the callback.
  */
-void CKComponentSendDidPrepareLayoutForComponent(id<CKComponentScopeEnumeratorProvider> scopeEnumeratorProvider, const CKComponentRootLayout &layout);
+void CKComponentSendDidPrepareLayoutForComponent(CKComponentScopeRoot *scopeRoot, const CKComponentRootLayout &layout);
 
 /**
  Call 'CKComponentSendDidPrepareLayoutForComponent' with objects in indexPaths of CKDataSourceState
@@ -51,6 +51,7 @@ void CKComponentSendDidPrepareLayoutForComponentsWithIndexPaths(id<NSFastEnumera
  Update component of component controller in component trees of `indexPaths`of CKDataSourceState
  */
 void CKComponentUpdateComponentForComponentControllerWithIndexPaths(id<NSFastEnumeration> indexPaths,
-                                                                    CKDataSourceState *state);
+                                                                    CKDataSourceState *state,
+                                                                    BOOL shouldUpdateComponentOverride);
 
 #endif

@@ -12,7 +12,7 @@
 
 #if CK_NOT_SWIFT
 
-#import <ComponentTextKit/CKAsyncLayer.h>
+#import <ComponentKit/CKAsyncLayer.h>
 
 @interface CKAsyncLayer (Subclass)
 

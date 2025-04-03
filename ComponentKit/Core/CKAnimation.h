@@ -38,8 +38,8 @@ namespace CK {
 
       TimingCurve(ControlPoint p1, ControlPoint p2) :_p1(p1), _p2(p2) {}
 
-      static auto fromCA(NSString *name) noexcept -> TimingCurve;
-      static auto fromCA(CAMediaTimingFunction *f) noexcept -> TimingCurve;
+      static auto fromCA(NSString *name) -> TimingCurve;
+      static auto fromCA(CAMediaTimingFunction *f) -> TimingCurve;
 
       auto toCA() const -> CAMediaTimingFunction *;
 
@@ -443,9 +443,6 @@ namespace CK {
         this->applyTimingTo(g);
         if (type == Type::initial || type == Type::change) {
           g.fillMode = kCAFillModeBackwards;
-        } else if (type == Type::final) {
-          g.fillMode = kCAFillModeForwards;
-          g.removedOnCompletion = NO;
         }
         g.duration = durationForParallelGroup(*this);
         return g;
@@ -547,8 +544,6 @@ namespace CK {
     auto backgroundColor() -> ChangeBuilder;
     /// Returns an object that can be used to configure a change animation of the border color.
     auto borderColor() -> ChangeBuilder;
-    /// Returns an object that can be used to configure a change animation of the rotation transformation.
-    auto rotation() -> ChangeBuilder;
 
     /**
      Returns an animation that runs given animations in parallel.

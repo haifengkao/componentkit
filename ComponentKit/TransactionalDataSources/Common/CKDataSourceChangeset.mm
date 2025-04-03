@@ -13,9 +13,9 @@
 #import <UIKit/UICollectionView.h>
 #import <UIKit/UITableView.h>
 
-#import <ComponentKit/RCEqualityHelpers.h>
+#import <ComponentKit/CKEqualityHelpers.h>
 #import <ComponentKit/CKMacros.h>
-#import <RenderCore/RCAssert.h>
+#import <ComponentKit/CKAssert.h>
 
 #import "CKIndexSetDescription.h"
 
@@ -28,25 +28,7 @@
                     insertedSections:(NSIndexSet *)insertedSections
                        insertedItems:(NSDictionary *)insertedItems
 {
-  return [self initWithOriginName:@"not_set"
-                     updatedItems:updatedItems
-                     removedItems:removedItems
-                  removedSections:removedSections
-                       movedItems:movedItems
-                 insertedSections:insertedSections
-                    insertedItems:insertedItems];
-}
-
-- (instancetype)initWithOriginName:(NSString *)originName
-                      updatedItems:(NSDictionary *)updatedItems
-                      removedItems:(NSSet *)removedItems
-                   removedSections:(NSIndexSet *)removedSections
-                        movedItems:(NSDictionary *)movedItems
-                  insertedSections:(NSIndexSet *)insertedSections
-                     insertedItems:(NSDictionary *)insertedItems
-{
   if (self = [super init]) {
-    _originName = [originName copy] ?: @"nil";
     _updatedItems = [updatedItems copy] ?: @{};
     _removedItems = [removedItems copy] ?: [NSSet set];
     _removedSections = [removedSections copy] ?: [NSIndexSet indexSet];
@@ -85,7 +67,7 @@
     [_removedSections isEqualToIndexSet:obj.removedSections] &&
     [_movedItems isEqualToDictionary:obj.movedItems] &&
     [_insertedSections isEqualToIndexSet:obj.insertedSections] &&
-    [_insertedItems isEqualToDictionary:obj.insertedItems];
+    [_insertedItems isEqual:obj.insertedItems];
   }
 }
 
@@ -99,7 +81,7 @@
     [_insertedSections hash],
     [_insertedItems hash]
   };
-  return RCIntegerArrayHash(hashes, CK_ARRAY_COUNT(hashes));
+  return CKIntegerArrayHash(hashes, CK_ARRAY_COUNT(hashes));
 }
 
 @end
@@ -112,26 +94,9 @@
   NSDictionary *_movedItems;
   NSIndexSet *_insertedSections;
   NSDictionary *_insertedItems;
-  NSString *_originName;
 }
 
-- (instancetype)initWithOriginName:(NSString *)originName {
-  self = [super init];
-  if (self) {
-    _originName = originName;
-  }
-  return self;
-}
-
-+ (instancetype)dataSourceChangeset {
-  return [CKDataSourceChangesetBuilder dataSourceChangesetWithOriginName:@"changeset_builder_default"];
-}
-
-+ (instancetype)dataSourceChangesetWithOriginName:(NSString *)originName {
-  CKDataSourceChangesetBuilder * builder = [[self alloc] initWithOriginName:originName];
-  return builder;
-}
-
++ (instancetype)dataSourceChangeset { return [[self alloc] init]; }
 - (instancetype)withUpdatedItems:(NSDictionary *)updatedItems { _updatedItems = updatedItems; return self;}
 - (instancetype)withRemovedItems:(NSSet *)removedItems { _removedItems = removedItems; return self; }
 - (instancetype)withRemovedSections:(NSIndexSet *)removedSections { _removedSections = removedSections; return self; }
@@ -141,8 +106,7 @@
 
 - (CKDataSourceChangeset *)build
 {
-  return [[CKDataSourceChangeset alloc] initWithOriginName:_originName
-                                              updatedItems:_updatedItems
+  return [[CKDataSourceChangeset alloc] initWithUpdatedItems:_updatedItems
                                                                       removedItems:_removedItems
                                                                    removedSections:_removedSections
                                                                         movedItems:_movedItems

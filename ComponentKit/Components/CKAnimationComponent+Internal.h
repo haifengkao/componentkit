@@ -9,8 +9,9 @@
  */
 
 #import <ComponentKit/CKAnimationComponent.h>
+#import <ComponentKit/CKDefines.h>
 
-NS_ASSUME_NONNULL_BEGIN
+#if CK_NOT_SWIFT
 
 @interface CKAnimationComponent (Internal)
 
@@ -20,10 +21,10 @@ NS_ASSUME_NONNULL_BEGIN
  @param animationOnFinalUnmount Animation that will be applied to the component when it is no longer in the mounted hierarchy.
  @note This is for internal use only - the use of stongly typed variant is preferred.
 */
-+ (instancetype)newWithComponent:(CKComponent *_Nullable)component
-         animationOnInitialMount:(CAAnimation *_Nullable)animationOnInitialMount
-         animationOnFinalUnmount:(CAAnimation *_Nullable)animationOnFinalUnmount NS_SWIFT_NAME(init(component:onInitialMount:onFinalUnmount:));
++ (instancetype)newWithComponent:(CKComponent *)component
+         animationOnInitialMount:(CAAnimation *)animationOnInitialMount
+         animationOnFinalUnmount:(CAAnimation *)animationOnFinalUnmount;
 
 @end
 
-NS_ASSUME_NONNULL_END
+#endif

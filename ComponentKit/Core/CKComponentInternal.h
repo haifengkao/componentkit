@@ -19,11 +19,11 @@
 #import <ComponentKit/CKComponent.h>
 #import <ComponentKit/CKComponentLayout.h>
 #import <ComponentKit/CKComponentScopeEnumeratorProvider.h>
-#import <ComponentKit/CKTreeNode.h>
+#import <ComponentKit/CKTreeNodeProtocol.h>
 
 @protocol CKSystraceListener;
 
-@interface CKComponent () <CKComponentProtocol>
+@interface CKComponent () <CKTreeNodeComponentProtocol>
 
 /**
  Mounts the component in the given context:
@@ -39,21 +39,16 @@
  Override this if your component wants to perform a custom mounting action, but this should be very rare!
 
  @param context The component's content should be positioned within the given view at the given position.
- @param layout The layout that is being mounted
+ @param size The size for this component
+ @param children The positioned children for this component. Normally this parameter is ignored.
  @param supercomponent This component's parent component
  @return An updated mount context. In most cases, this is just be the passed-in context. If a view was created, this is
  used to specify that subcomponents should be mounted inside the view.
  */
 - (CK::Component::MountResult)mountInContext:(const CK::Component::MountContext &)context
-                                      layout:(const RCLayout &)layout
+                                        size:(const CGSize)size
+                                    children:(std::shared_ptr<const std::vector<CKComponentLayoutChild>>)children
                               supercomponent:(CKComponent *)supercomponent NS_REQUIRES_SUPER;
-
-/**
- This method can be used to override what accessible elements are provided by the component. Very similar to UIKit accessibilityElements.
-
- Override this if your component wants needs to return a custom set of accessible children, but this should be very rare!
- */
-- (NSArray<NSObject *> *)accessibilityChildren;
 
 /**
  For internal use only; don't use this directly.
@@ -69,14 +64,11 @@
  */
 - (const CKComponentViewConfiguration &)viewConfiguration;
 
-/** Free form metadata associated with the component */
-@property (nonatomic, readonly) NSDictionary<NSString *, id> *metadata;
-
 /** Used to get the root component in the responder chain; don't touch this. */
 @property (nonatomic, weak) UIView *rootComponentMountedView;
 
 /** The size that was passed into the component; don't touch this. */
-@property (nonatomic, assign, readonly) RCComponentSize size;
+@property (nonatomic, assign, readonly) CKComponentSize size;
 
 /** Used to get the scope root enumerator; during component creation only */
 @property (nonatomic, strong, readonly) id<CKComponentScopeEnumeratorProvider> scopeEnumeratorProvider;
@@ -91,13 +83,13 @@
 @property (nonatomic, assign, readonly) BOOL hasBoundsAnimations;
 
 /** For internal use; don't touch this. */
-@property (nonatomic, assign, readonly) BOOL hasInitialMountAnimations;
-
-/** For internal use; don't touch this. */
-@property (nonatomic, assign, readonly) BOOL hasFinalUnmountAnimations;
-
-/** For internal use; don't touch this. */
 @property (nonatomic, assign, readonly) BOOL controllerOverridesDidPrepareLayout;
+
+/**
+ Update component in controller right after new generation is created.
+ NOTE: This should only be used by ComponentKit infra.
+ */
+@property (nonatomic, assign, readonly, class) BOOL shouldUpdateComponentInController;
 
 @end
 

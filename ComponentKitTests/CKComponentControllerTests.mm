@@ -24,15 +24,13 @@
 #import <ComponentKitTestHelpers/CKComponentTestRootScope.h>
 #import <ComponentKitTestHelpers/CKLifecycleTestComponent.h>
 
-#import "CKComponentTestCase.h"
-
 using namespace CKComponentControllerHelper;
 
 // Used for testing component controller that doesn't have lifecycle methods implemented.
 @interface CKEmptyComponentController: CKComponentController
 @end
 
-@interface CKComponentControllerTests : CKComponentTestCase
+@interface CKComponentControllerTests : XCTestCase
 @end
 
 @implementation CKComponentControllerTests

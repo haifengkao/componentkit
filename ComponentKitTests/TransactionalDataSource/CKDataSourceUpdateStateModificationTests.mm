@@ -42,7 +42,7 @@ static NSString *const kTestStateForLifecycleComponent = @"kTestStateForLifecycl
 {
   CKComponentScope scope(self);
   CKLifecycleTestComponent *lifecycleComponent = [scope.state() isEqual:kTestStateForLifecycleComponent]
-  ? [CKLifecycleTestComponent new]
+  ? [CKLifecycleTestComponent newWithView:{} size:{}]
   : nil;
   const auto c = [super newWithComponent:lifecycleComponent ?: CK::ComponentBuilder()
                                                                    .build()];
@@ -77,11 +77,6 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject> context)
   _pendingStateUpdates[rootIdentifier][handle].push_back(stateUpdate);
 }
 
-+ (BOOL)requiresMainThreadAffinedStateUpdates
-{
-  return YES;
-}
-
 - (void)tearDown
 {
   _pendingStateUpdates.clear();
@@ -98,7 +93,7 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject> context)
   [c updateState:^(id state){return @"hello";} mode:CKUpdateModeSynchronous];
 
   CKDataSourceUpdateStateModification *updateStateModification =
-  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates treeLayoutCache:nullptr];
+  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates];
 
   CKDataSourceChange *change = [updateStateModification changeFromState:originalState];
 
@@ -126,7 +121,7 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject> context)
   [c updateState:^(id state){return @"hello";} mode:CKUpdateModeSynchronous];
 
   CKDataSourceUpdateStateModification *updateStateModification =
-  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates treeLayoutCache:nullptr];
+  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates];
 
   CKDataSourceChange *change = [updateStateModification changeFromState:originalState];
 
@@ -147,7 +142,7 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject> context)
   [c updateState:^(NSString *state){return [state stringByAppendingString:@" world"];} mode:CKUpdateModeSynchronous];
 
   CKDataSourceUpdateStateModification *updateStateModification =
-  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates treeLayoutCache:nullptr];
+  [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates];
 
   CKDataSourceChange *change = [updateStateModification changeFromState:originalState];
 
@@ -165,14 +160,14 @@ static CKComponent *ComponentProvider(id<NSObject> model, id<NSObject> context)
   CKComponent *c = (CKComponent *)[[originalState objectAtIndexPath:ip] rootLayout].component();
   [c updateState:^(NSString *state){return kTestStateForLifecycleComponent;} mode:CKUpdateModeSynchronous];
 
-  auto updateStateModification = [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates treeLayoutCache:nullptr];
+  auto updateStateModification = [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates];
   auto change = [updateStateModification changeFromState:originalState];
 
   const auto componentController = ((CKStatefulTestComponent *)[[change.state objectAtIndexPath:ip] rootLayout].component()).lifecycleComponent.controller;
   CKComponent *c2 = (CKComponent *)[[change.state objectAtIndexPath:ip] rootLayout].component();
   [c2 updateState:^(NSString *state){return @"";} mode:CKUpdateModeSynchronous];
 
-  updateStateModification = [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates treeLayoutCache:nullptr];
+  updateStateModification = [[CKDataSourceUpdateStateModification alloc] initWithStateUpdates:_pendingStateUpdates];
   change = [updateStateModification changeFromState:change.state];
 
   XCTAssertEqual(change.invalidComponentControllers.firstObject, componentController,

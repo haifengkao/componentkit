@@ -11,13 +11,11 @@
 #import "CKComponentHostingView.h"
 #import "CKComponentHostingViewInternal.h"
 
-#import <RenderCore/RCAssert.h>
-#import <ComponentKit/CKBlockSizeRangeProvider.h>
+#import <ComponentKit/CKAssert.h>
 #import <ComponentKit/CKGlobalConfig.h>
 #import <ComponentKit/CKMacros.h>
 #import <ComponentKit/CKOptional.h>
 #import <ComponentKit/CKRootTreeNode.h>
-#import <ComponentKit/CKComponentAccessibility.h>
 
 #import <algorithm>
 #import <vector>
@@ -65,6 +63,22 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
 #pragma mark - Lifecycle
 
+- (instancetype)initWithFrame:(CGRect)frame
+{
+  CK_NOT_DESIGNATED_INITIALIZER();
+}
+
+- (instancetype)initWithComponentProvider:(Class<CKComponentProvider>)componentProvider
+                        sizeRangeProvider:(id<CKComponentSizeRangeProviding>)sizeRangeProvider
+{
+  return [self initWithComponentProvider:componentProvider
+                       sizeRangeProvider:sizeRangeProvider
+                     componentPredicates:{}
+           componentControllerPredicates:{}
+                       analyticsListener:nil
+                                 options:{}];
+}
+
 - (instancetype)initWithComponentProviderFunc:(CKComponentProviderFunc)componentProvider
                             sizeRangeProvider:(id<CKComponentSizeRangeProviding>)sizeRangeProvider
 {
@@ -76,15 +90,23 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
                                      options:{}];
 }
 
-- (instancetype)initWithComponentProvider:(CKComponentProviderFunc)componentProvider
-                   sizeRangeProviderBlock:(CKComponentSizeRangeProviderBlock)sizeRangeProvider
+- (instancetype)initWithComponentProvider:(Class<CKComponentProvider>)componentProvider
+                        sizeRangeProvider:(id<CKComponentSizeRangeProviding>)sizeRangeProvider
+                      componentPredicates:(const std::unordered_set<CKComponentPredicate> &)componentPredicates
+            componentControllerPredicates:(const std::unordered_set<CKComponentControllerPredicate> &)componentControllerPredicates
+                        analyticsListener:(id<CKAnalyticsListener>)analyticsListener
+                                  options:(const CKComponentHostingViewOptions &)options
 {
-  return [self initWithComponentProviderFunc:componentProvider
-              sizeRangeProvider:[[CKBlockSizeRangeProvider alloc] initWithBlock:sizeRangeProvider]
-            componentPredicates:{}
-  componentControllerPredicates:{}
-              analyticsListener:nil
-                        options:{}];
+  auto const p = ^(id<NSObject> m, id<NSObject> c) {
+    return [componentProvider componentForModel:m context:c];
+  };
+  return [self initWithComponentProviderBlock:p
+                  componentProviderIdentifier:[NSString stringWithFormat:@"%p", componentProvider]
+                            sizeRangeProvider:sizeRangeProvider
+                          componentPredicates:componentPredicates
+                componentControllerPredicates:componentControllerPredicates
+                            analyticsListener:analyticsListener
+                                      options:options];
 }
 
 - (instancetype)initWithComponentProviderFunc:(CKComponentProviderFunc)componentProvider
@@ -94,12 +116,32 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
                             analyticsListener:(id<CKAnalyticsListener>)analyticsListener
                                       options:(const CKComponentHostingViewOptions &)options
 {
+  componentProvider = componentProvider ?: nilProvider;
+
+  auto const p = ^(id<NSObject> m, id<NSObject> c) { return componentProvider(m, c); };
+  return [self initWithComponentProviderBlock:p
+                  componentProviderIdentifier:[NSString stringWithFormat:@"%p", componentProvider]
+                            sizeRangeProvider:sizeRangeProvider
+                          componentPredicates:componentPredicates
+                componentControllerPredicates:componentControllerPredicates
+                            analyticsListener:analyticsListener
+                                      options:options];
+}
+
+- (instancetype)initWithComponentProviderBlock:(CKComponentProviderBlock)componentProvider
+                   componentProviderIdentifier:(NSString *)componentProviderIdentifier
+                             sizeRangeProvider:(id<CKComponentSizeRangeProviding>)sizeRangeProvider
+                           componentPredicates:(const std::unordered_set<CKComponentPredicate> &)componentPredicates
+                 componentControllerPredicates:(const std::unordered_set<CKComponentControllerPredicate> &)componentControllerPredicates
+                             analyticsListener:(id<CKAnalyticsListener>)analyticsListener
+                                       options:(const CKComponentHostingViewOptions &)options
+{
   if (self = [super initWithFrame:CGRectZero]) {
     _componentGenerator =
     [[CKComponentGenerator alloc]
      initWithOptions:{
        .delegate = CK::makeNonNull(self),
-       .componentProvider = CK::makeNonNull(componentProvider ?: nilProvider),
+       .componentProvider = CK::makeNonNull(componentProvider),
        .componentPredicates = componentPredicates,
        .componentControllerPredicates = componentControllerPredicates,
        .analyticsListener = analyticsListener,
@@ -112,7 +154,13 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
      scopeIdentifier:_componentGenerator.scopeRoot.globalIdentifier
      analyticsListener:_componentGenerator.scopeRoot.analyticsListener
      sizeRangeProvider:sizeRangeProvider
-     allowTapPassthrough:_allowTapPassthrough];
+     allowTapPassthrough:_allowTapPassthrough
+     rootViewPoolOptions:options.rootViewPool.map([&](const auto rootViewPool) {
+      return CKComponentHostingViewRootViewPoolOptions {
+        .rootViewCategory = CK::makeNonNull([NSString stringWithFormat:@"%@-%@", NSStringFromClass(self.class), componentProviderIdentifier]),
+        .rootViewPool = rootViewPool,
+      };
+     })];
     [self addSubview:self.containerView];
 
     _initialSize = options.initialSize;
@@ -135,7 +183,7 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
 - (void)layoutSubviews
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [super layoutSubviews];
 
   // It is possible for a view change due to mounting to trigger a re-layout of the entire screen. This can
@@ -155,11 +203,7 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
       return !CGSizeEqualToSize(rootLayout.size(), size);
     }).valueOr(NO);
     if (mountedComponent != _component || shouldLayoutComponent) {
-      auto const rootLayout = CKComputeRootComponentLayout(_component,
-                                                           {size, size},
-                                                           _componentGenerator.scopeRoot.analyticsListener,
-                                                           buildTrigger,
-                                                           _componentGenerator.scopeRoot);
+      auto const rootLayout = CKComputeRootComponentLayout(_component, {size, size}, _componentGenerator.scopeRoot.analyticsListener, buildTrigger);
       [self _applyRootLayout:rootLayout];
     }
     [_containerViewProvider mount];
@@ -169,18 +213,13 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
 - (CGSize)sizeThatFits:(CGSize)size
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [self _synchronouslyUpdateComponentIfNeeded];
   if (!_component) {
     // This could only happen when `initialSize` is specified.
     return _initialSize.valueOr(CGSizeZero);
   }
   return [self.containerView sizeThatFits:size];
-}
-
-- (void)traitCollectionDidChange:(UITraitCollection *)previousTraitCollection
-{
-  [_componentGenerator updateTraitCollection:self.traitCollection];
 }
 
 #pragma mark - Hit Testing
@@ -200,28 +239,21 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
 - (void)updateModel:(id<NSObject>)model mode:(CKUpdateMode)mode
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [_componentGenerator updateModel:model];
   [self _setNeedsUpdateWithMode:mode];
 }
 
 - (void)updateContext:(id<NSObject>)context mode:(CKUpdateMode)mode
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   [_componentGenerator updateContext:context];
-  [self _setNeedsUpdateWithMode:mode];
-}
-
-- (void)updateAccessibilityStatus:(BOOL)accessibilityStatus mode:(CKUpdateMode)mode
-{
-  RCAssertMainThread();
-  [_componentGenerator updateAccessibilityStatus:accessibilityStatus];
   [self _setNeedsUpdateWithMode:mode];
 }
 
 - (void)applyResult:(const CKBuildComponentResult &)result
 {
-  RCAssertMainThread();
+  CKAssertMainThread();
   _componentGenerator.scopeRoot = result.scopeRoot;
   [self _applyResult:result];
   [self setNeedsLayout];
@@ -230,16 +262,22 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
 - (void)reloadWithMode:(CKUpdateMode)mode
 {
-  RCAssertMainThread();
-  [_componentGenerator forceReloadInNextGeneration];
+  CKAssertMainThread();
+  [_componentGenerator ignoreComponentReuseInNextGeneration];
   [self _setNeedsUpdateWithMode:mode];
 }
 
-- (RCLayout)mountedLayout
+- (CKComponentLayout)mountedLayout
 {
   return _mountedRootLayout.map([](const auto &rootLayout) {
     return rootLayout.layout();
   }).valueOr({});
+}
+
+- (id<NSObject>)uniqueIdentifier
+{
+  auto const scopeRootIdentifier = _componentGenerator.scopeRoot.globalIdentifier;
+  return scopeRootIdentifier > 0 ? @(scopeRootIdentifier) : nil;
 }
 
 - (id<CKComponentScopeEnumeratorProvider>)scopeEnumeratorProvider
@@ -309,14 +347,11 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
   // Wait until the end of the run loop so that if multiple async updates are triggered we don't thrash.
   dispatch_async(dispatch_get_main_queue(), ^{
-    if (!self->_scheduledAsynchronousComponentUpdate) {
+    if (!_scheduledAsynchronousComponentUpdate) {
       // A synchronous update was either scheduled or completed, so we can skip the async update.
       return;
     }
-    // Sync trait collection in `componentGenerator` before building the next generation.
-    [self->_componentGenerator updateTraitCollection:self.traitCollection];
-    [self->_componentGenerator updateAccessibilityStatus:CK::Component::Accessibility::IsAccessibilityEnabled()];
-    [self->_componentGenerator generateComponentAsynchronously];
+    [_componentGenerator generateComponentAsynchronously];
   });
 }
 
@@ -342,15 +377,12 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
   }
 
   if (_isSynchronouslyUpdatingComponent) {
-    RCFailAssert(@"CKComponentHostingView is not re-entrant. This is called by -layoutSubviews, so ensure "
+    CKFailAssert(@"CKComponentHostingView is not re-entrant. This is called by -layoutSubviews, so ensure "
                  "that there is nothing that is triggering a nested call to -layoutSubviews.");
     return CK::none;
   }
 
   _isSynchronouslyUpdatingComponent = YES;
-  // Sync trait collection in `componentGenerator` before building the next generation.
-  [_componentGenerator updateTraitCollection:self.traitCollection];
-  [_componentGenerator updateAccessibilityStatus:CK::Component::Accessibility::IsAccessibilityEnabled()];
   const auto result = [_componentGenerator generateComponentSynchronously];
   [self _applyResult:result];
   _isSynchronouslyUpdatingComponent = NO;

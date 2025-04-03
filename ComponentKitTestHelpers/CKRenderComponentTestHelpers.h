@@ -29,7 +29,7 @@ struct CKTestChildRenderComponentProps {
 // CKCompositeComponent with scope and state.
 @interface CKCompositeComponentWithScopeAndState : CKCompositeComponent
 + (instancetype)newWithComponent:(CKComponent *)component;
-- (CKComponent *)childComponent;
+- (CKComponent *)child;
 @end
 
 // Render component with a `CKTestChildRenderComponent` child component.
@@ -56,11 +56,6 @@ struct CKTestRenderComponentProps {
 
 // A helper class that inherits from 'CKTestLayoutComponent'; render the component froms the initializer
 @interface CKTestLayoutComponent : CKLayoutComponent
-
-CK_INIT_UNAVAILABLE;
-
-CK_LAYOUT_COMPONENT_INIT_UNAVAILABLE;
-
 + (instancetype)newWithChildren:(std::vector<CKComponent *>)children;
 @end
 
@@ -70,6 +65,4 @@ CK_LAYOUT_COMPONENT_INIT_UNAVAILABLE;
 
 @interface CKCompositeComponentWithScope : CKCompositeComponent
 + (instancetype)newWithComponentProvider:(CKComponent *(^)())componentProvider;
-+ (instancetype)newWithComponentProvider:(CKComponent *(^)())componentProvider scopeIdentifier:(id)scopeIdentifier;
-- (CKComponent *)childComponent;
 @end

@@ -19,9 +19,7 @@
 #import <ComponentKitTestHelpers/CKLifecycleTestComponent.h>
 #import <ComponentKitTestHelpers/CKAnalyticsListenerSpy.h>
 
-#import "CKComponentTestCase.h"
-
-@interface CKComponentHostingContainerViewProviderTests : CKComponentTestCase
+@interface CKComponentHostingContainerViewProviderTests : XCTestCase
 @end
 
 @implementation CKComponentHostingContainerViewProviderTests
@@ -45,7 +43,8 @@
    sizeRangeProvider:
    [CKComponentFlexibleSizeRangeProvider
     providerWithFlexibility:CKComponentSizeRangeFlexibilityNone]
-   allowTapPassthrough:NO];
+   allowTapPassthrough:NO
+   rootViewPoolOptions:CK::none];
 
   const auto result = CKBuildComponent(CKComponentScopeRootWithDefaultPredicates(nil, _analyticsListener),
                                        {},
@@ -64,8 +63,8 @@
 
 - (void)testMount
 {
-  XCTAssertEqual(_analyticsListener.willMountComponentHitCount, 1);
-  XCTAssertEqual(_analyticsListener.didMountComponentHitCount, 1);
+  XCTAssertEqual(_analyticsListener->_willMountComponentHitCount, 1);
+  XCTAssertEqual(_analyticsListener->_didMountComponentHitCount, 1);
 }
 
 - (void)testUnmount
@@ -76,12 +75,12 @@
 
 - (void)test_WhenMountsLayout_ReportsWillCollectAnimationsEvent
 {
-  XCTAssertEqual(_analyticsListener.willCollectAnimationsHitCount, 1);
+  XCTAssertEqual(_analyticsListener->_willCollectAnimationsHitCount, 1);
 }
 
 - (void)test_WhenMountsLayout_ReportsDidCollectAnimationsEvent
 {
-  XCTAssertEqual(_analyticsListener.didCollectAnimationsHitCount, 1);
+  XCTAssertEqual(_analyticsListener->_didCollectAnimationsHitCount, 1);
 }
 
 - (void)testSizeCache_CachedSizeIsUsedIfConstrainedSizesAreSame
@@ -89,7 +88,7 @@
   const auto constrainedSize = CGSizeMake(100, 100);
   [_containerViewProvider.containerView sizeThatFits:constrainedSize];
   [_containerViewProvider.containerView sizeThatFits:constrainedSize];
-  XCTAssertEqual(_analyticsListener.willLayoutComponentTreeHitCount, 2);
+  XCTAssertEqual(_analyticsListener->_willLayoutComponentTreeHitCount, 2);
 }
 
 - (void)testSizeCache_CachedSizeIsNotUsedIfConstrainedSizesAreDifferent
@@ -98,7 +97,7 @@
   const auto constrainedSize2 = CGSizeMake(200, 200);
   [_containerViewProvider.containerView sizeThatFits:constrainedSize1];
   [_containerViewProvider.containerView sizeThatFits:constrainedSize2];
-  XCTAssertEqual(_analyticsListener.willLayoutComponentTreeHitCount, 3);
+  XCTAssertEqual(_analyticsListener->_willLayoutComponentTreeHitCount, 3);
 }
 
 - (void)testSizeCache_CacheSizeIsNotUsedIfComponentIsUpdated
@@ -107,7 +106,7 @@
   [_containerViewProvider.containerView sizeThatFits:constrainedSize];
   [_containerViewProvider setComponent:[CKComponent new]];
   [_containerViewProvider.containerView sizeThatFits:constrainedSize];
-  XCTAssertEqual(_analyticsListener.willLayoutComponentTreeHitCount, 3);
+  XCTAssertEqual(_analyticsListener->_willLayoutComponentTreeHitCount, 3);
 }
 
 @end
