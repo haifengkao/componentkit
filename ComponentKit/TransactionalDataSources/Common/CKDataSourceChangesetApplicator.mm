@@ -210,7 +210,7 @@ struct CKDataSourceChangesetApplicatorPipelineItem {
 - (void)setViewPort:(CKDataSourceViewport)viewport
 {
   dispatch_async(_queue, ^{
-    _viewport = viewport;
+    self->_viewport = viewport;
   });
 }
 

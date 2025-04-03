@@ -101,8 +101,8 @@ using namespace CKComponentControllerHelper;
                            @"Invalid section: %lu (>= %lu). Changeset: %@, user info: %@, state: %@",
                            (unsigned long)indexPath.section,
                            (unsigned long)newSections.count,
-                           _changeset,
-                           _userInfo,
+                           self->_changeset,
+                           self->_userInfo,
                            oldState);
     }
     NSMutableArray *const section = newSections[indexPath.section];
@@ -111,8 +111,8 @@ using namespace CKComponentControllerHelper;
                            @"Invalid item: %lu (>= %lu). Changeset: %@, user info: %@, state: %@",
                            (unsigned long)indexPath.item,
                            (unsigned long)section.count,
-                           _changeset,
-                           _userInfo,
+                           self->_changeset,
+                           self->_userInfo,
                            oldState);
     }
     CKDataSourceItem *const oldItem = section[indexPath.item];
@@ -258,7 +258,7 @@ using namespace CKComponentControllerHelper;
 
   // Insert items
   const auto buildItem = ^CKDataSourceItem *(id model) {
-    return [self _buildDataSourceItemForPreviousRoot:CKComponentScopeRootWithPredicates(_stateListener,
+    return [self _buildDataSourceItemForPreviousRoot:CKComponentScopeRootWithPredicates(self->_stateListener,
                                                                                         configuration.analyticsListener,
                                                                                         configuration.componentPredicates,
                                                                                         configuration.componentControllerPredicates)

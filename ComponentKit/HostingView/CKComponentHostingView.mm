@@ -347,11 +347,11 @@ static auto nilProvider(id<NSObject>, id<NSObject>) -> CKComponent * { return ni
 
   // Wait until the end of the run loop so that if multiple async updates are triggered we don't thrash.
   dispatch_async(dispatch_get_main_queue(), ^{
-    if (!_scheduledAsynchronousComponentUpdate) {
+    if (!self->_scheduledAsynchronousComponentUpdate) {
       // A synchronous update was either scheduled or completed, so we can skip the async update.
       return;
     }
-    [_componentGenerator generateComponentAsynchronously];
+    [self->_componentGenerator generateComponentAsynchronously];
   });
 }
 

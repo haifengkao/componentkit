@@ -100,7 +100,7 @@ struct CKComponentGeneratorInputs {
   const auto enableComponentReuse = _pendingInputs.enableComponentReuse;
   _pendingInputs.enableComponentReuse = YES;
   const auto result = CKBuildComponent(_pendingInputs.scopeRoot, _pendingInputs.stateUpdates, ^{
-    return _componentProvider(_pendingInputs.model, _pendingInputs.context);
+    return self->_componentProvider(self->_pendingInputs.model, self->_pendingInputs.context);
   }, enableComponentReuse);
   [self _applyResult:result
 addedComponentControllers:_addedComponentControllersBetweenScopeRoots(result.scopeRoot, _pendingInputs.scopeRoot)
@@ -122,7 +122,7 @@ invalidComponentControllers:_invalidComponentControllersBetweenScopeRoots(result
                                                                     inputs->scopeRoot,
                                                                     inputs->stateUpdates,
                                                                     ^{
-                                                                      return _componentProvider(inputs->model, inputs->context);
+                                                                      return self->_componentProvider(inputs->model, inputs->context);
                                                                     },
                                                                     inputs->enableComponentReuse));
     const auto addedComponentControllers =
@@ -131,18 +131,18 @@ invalidComponentControllers:_invalidComponentControllersBetweenScopeRoots(result
     std::make_shared<const std::vector<CKComponentController *>>(_invalidComponentControllersBetweenScopeRoots(result->scopeRoot, inputs->scopeRoot));
     const auto asyncApplication = CK::Analytics::willStartAsyncBlock(CK::Analytics::BlockName::ComponentGeneratorWillApply);
 
-    dispatch_async(_affinedQueue, ^{
+    dispatch_async(self->_affinedQueue, ^{
       CKSystraceScope applicationScope(asyncApplication);
-      if (![_delegate componentGeneratorShouldApplyAsynchronousGenerationResult:self]) {
+      if (![self->_delegate componentGeneratorShouldApplyAsynchronousGenerationResult:self]) {
         return;
       }
       // If the inputs haven't changed, apply the result; otherwise, retry.
-      if (_pendingInputs == *inputs) {
-        _pendingInputs.enableComponentReuse = YES;
+      if (self->_pendingInputs == *inputs) {
+        self->_pendingInputs.enableComponentReuse = YES;
         [self _applyResult:*result
  addedComponentControllers:addedComponentControllers != nullptr ? *addedComponentControllers : std::vector<CKComponentController *>{}
 invalidComponentControllers:invalidComponentControllers != nullptr ? *invalidComponentControllers : std::vector<CKComponentController *>{}];
-        [_delegate componentGenerator:self didAsynchronouslyGenerateComponentResult:*result];
+        [self->_delegate componentGenerator:self didAsynchronouslyGenerateComponentResult:*result];
       } else {
         [self generateComponentAsynchronously];
       }
@@ -254,13 +254,13 @@ static std::vector<CKComponentController *> _addedComponentControllersBetweenSco
   CKAssertMainThread();
 
   const auto enqueueStateUpdate = ^{
-    _pendingInputs.stateUpdates[handle].push_back(stateUpdate);
-    [_delegate componentGenerator:self didReceiveComponentStateUpdateWithMode:mode];
+    self->_pendingInputs.stateUpdates[handle].push_back(stateUpdate);
+    [self->_delegate componentGenerator:self didReceiveComponentStateUpdateWithMode:mode];
   };
   if ([self _isRunningOnAffinedQueue]) {
     enqueueStateUpdate();
   } else {
-    dispatch_async(_affinedQueue, enqueueStateUpdate);
+    dispatch_async(self->_affinedQueue, enqueueStateUpdate);
   }
 }
 
